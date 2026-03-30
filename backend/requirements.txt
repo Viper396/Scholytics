@@ -1,0 +1,9 @@
+# Python 3.11+
+fastapi
+uvicorn[standard]
+httpx
+chromadb
+sentence-transformers
+groq
+python-dotenv
+arxiv
