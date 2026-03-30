@@ -1,11 +1,10 @@
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-import chromadb
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from db.chroma_client import get_collection
 from routers.graph import router as graph_router
 from routers.papers import router as papers_router
 from routers.search import router as search_router
@@ -18,9 +17,8 @@ def get_allowed_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize a shared ChromaDB client on startup.
-    chroma_path = Path(__file__).resolve().parent / ".chroma"
-    app.state.chroma_client = chromadb.PersistentClient(path=str(chroma_path))
+    # Initialize a shared Chroma collection on startup.
+    app.state.chroma_collection = get_collection()
     yield
 
 
