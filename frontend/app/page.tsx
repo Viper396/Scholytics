@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import Nav from "../components/Nav";
 
 type PaperResult = {
   arxiv_id: string;
@@ -30,6 +31,7 @@ type SummaryState = {
 
 const AVAILABLE_CATEGORIES = ["cs.AI", "cs.LG", "cs.CV", "cs.CL", "stat.ML"];
 const CURRENT_YEAR = new Date().getFullYear();
+const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
 
 function clampScore(score: number): number {
   if (Number.isNaN(score)) {
@@ -92,14 +94,36 @@ export default function Home() {
   const [summaryById, setSummaryById] = useState<Record<string, SummaryState>>(
     {},
   );
-  const [graphSelection, setGraphSelection] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [selectedForGraph, setSelectedForGraph] = useState<string[]>([]);
 
-  const selectedGraphCount = useMemo(
-    () => Object.values(graphSelection).filter(Boolean).length,
-    [graphSelection],
-  );
+  const selectedGraphCount = selectedForGraph.length;
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(GRAPH_SELECTION_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      const cleaned = parsed
+        .map((item) => String(item).trim())
+        .filter((item) => item.length > 0);
+      setSelectedForGraph(Array.from(new Set(cleaned)));
+    } catch {
+      // Ignore malformed localStorage state.
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      GRAPH_SELECTION_STORAGE_KEY,
+      JSON.stringify(selectedForGraph),
+    );
+  }, [selectedForGraph]);
 
   async function runSearch(nextQuery?: string) {
     const query = (nextQuery ?? queryInput).trim();
@@ -150,7 +174,6 @@ export default function Home() {
       setResults(data.results ?? []);
       setExpandedAbstracts({});
       setSummaryById({});
-      setGraphSelection({});
     } catch (error) {
       setResults([]);
       setErrorMessage(
@@ -296,10 +319,12 @@ export default function Home() {
   }
 
   function toggleGraphSelection(arxivId: string) {
-    setGraphSelection((current) => ({
-      ...current,
-      [arxivId]: !current[arxivId],
-    }));
+    setSelectedForGraph((current) => {
+      if (current.includes(arxivId)) {
+        return current.filter((id) => id !== arxivId);
+      }
+      return [...current, arxivId];
+    });
   }
 
   async function summarizePaper(arxivId: string) {
@@ -355,6 +380,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100">
       <div className="mx-auto flex w-full max-w-7xl flex-col px-6 pb-12 pt-12 md:px-10">
+        <Nav selectedIds={selectedForGraph} />
+
         <section className="mx-auto w-full max-w-4xl">
           <h1 className="mb-8 text-center text-4xl font-semibold tracking-tight text-slate-100 md:text-5xl">
             PaperScope
@@ -531,7 +558,7 @@ export default function Home() {
                   const score = clampScore(paper.relevance_score);
                   const summaryState = summaryById[paper.arxiv_id];
                   const abstractExpanded = !!expandedAbstracts[paper.arxiv_id];
-                  const inGraph = !!graphSelection[paper.arxiv_id];
+                  const inGraph = selectedForGraph.includes(paper.arxiv_id);
 
                   return (
                     <article
