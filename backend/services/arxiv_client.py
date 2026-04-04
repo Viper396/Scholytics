@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import arxiv
 
 
-def _parse_date_from(filters: dict[str, Any] | None) -> datetime | None:
+def _parse_date_from(filters: dict[str, Any] | None) -> date | None:
 	if not filters:
 		return None
 	raw_date = filters.get("date_from")
 	if not raw_date:
 		return None
 	try:
-		return datetime.strptime(str(raw_date), "%Y-%m-%d")
+		return datetime.strptime(str(raw_date), "%Y-%m-%d").date()
 	except ValueError:
 		return None
 
@@ -58,7 +58,7 @@ def search_papers(
 
 		papers: list[dict[str, Any]] = []
 		for result in client.results(search):
-			if date_from and result.published < date_from:
+			if date_from and result.published.date() < date_from:
 				continue
 			if categories and not categories.intersection(result.categories):
 				continue

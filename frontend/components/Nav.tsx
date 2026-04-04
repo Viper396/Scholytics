@@ -9,7 +9,7 @@ type NavProps = {
 
 export default function Nav({
   selectedIds,
-  githubUrl = "https://github.com",
+  githubUrl = "https://github.com/Viper396/Scholytics",
 }: NavProps) {
   const cleanedIds = Array.from(
     new Set(selectedIds.map((id) => id.trim()).filter((id) => id.length > 0)),
@@ -18,6 +18,10 @@ export default function Nav({
     cleanedIds.length > 0
       ? `/graph?ids=${cleanedIds.map((id) => encodeURIComponent(id)).join(",")}`
       : "/graph";
+
+  function handleGithubClick() {
+    window.open(githubUrl, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <nav className="mb-6 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 shadow-lg shadow-slate-950/20">
@@ -40,14 +44,13 @@ export default function Nav({
           </span>
         </Link>
 
-        <a
-          href={githubUrl}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={handleGithubClick}
           className="rounded-full border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400 hover:text-white"
         >
           GitHub
-        </a>
+        </button>
       </div>
     </nav>
   );
