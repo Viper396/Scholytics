@@ -1,9 +1,5 @@
 # Scholytics
 
-## About (GitHub Repo Blurb)
-
-AI-powered research copilot that combines live arXiv semantic search, streaming synthesis, and an interactive citation relationship graph.
-
 ## Overview
 
 Scholytics helps students and developers quickly understand fast-moving research without manually reading dozens of papers end to end. It uses a Retrieval-Augmented Generation (RAG) pipeline: fetches live papers from arXiv, embeds and indexes them, retrieves the most relevant results, and then generates paper-level summaries plus topic-level synthesis. Beyond search, it builds an interactive citation-style relationship graph so users can explore how papers connect by shared authors and research fields. The platform is built with a FastAPI backend, ChromaDB vector retrieval, sentence-transformers embeddings, Groq-hosted LLM inference, and a Next.js + D3 frontend.
