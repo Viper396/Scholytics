@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as d3 from "d3";
@@ -116,7 +123,7 @@ function formatDate(value: string): string {
   });
 }
 
-export default function GraphPage() {
+function GraphPageContent() {
   const searchParams = useSearchParams();
   const requestedIds = useMemo(
     () => parseIdsParam(searchParams.get("ids")),
@@ -845,5 +852,27 @@ export default function GraphPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function GraphPageFallback() {
+  return (
+    <main className="min-h-screen bg-slate-900 px-5 pb-8 pt-6 text-slate-100 md:px-8">
+      <div className="mx-auto w-full max-w-375">
+        <div className="flex h-155 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70">
+          <p className="animate-pulse text-sm text-slate-300">
+            Loading graph...
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function GraphPage() {
+  return (
+    <Suspense fallback={<GraphPageFallback />}>
+      <GraphPageContent />
+    </Suspense>
   );
 }
