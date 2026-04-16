@@ -1,12 +1,35 @@
 from __future__ import annotations
 
+import math
 import os
 from typing import Any
 
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
-_MODEL_NAME = os.getenv("LOCAL_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-_MODEL = SentenceTransformer(_MODEL_NAME)
+_DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+_MODEL_NAME = os.getenv("LOCAL_EMBEDDING_MODEL", _DEFAULT_MODEL_NAME).strip() or _DEFAULT_MODEL_NAME
+_MODEL: TextEmbedding | None = None
+
+
+def _resolve_model_name() -> str:
+	# Preserve backward compatibility with older env values from sentence-transformers.
+	if _MODEL_NAME.startswith("sentence-transformers/"):
+		return _DEFAULT_MODEL_NAME
+	return _MODEL_NAME
+
+
+def _get_model() -> TextEmbedding:
+	global _MODEL
+	if _MODEL is None:
+		_MODEL = TextEmbedding(model_name=_resolve_model_name())
+	return _MODEL
+
+
+def _normalize(vector: list[float]) -> list[float]:
+	norm = math.sqrt(sum(value * value for value in vector))
+	if norm == 0:
+		return vector
+	return [value / norm for value in vector]
 
 
 def _to_joined_string(value: Any) -> str:
@@ -21,8 +44,9 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 	if not texts:
 		return []
 
-	embeddings = _MODEL.encode(texts, normalize_embeddings=True)
-	return [[float(v) for v in row] for row in embeddings.tolist()]
+	model = _get_model()
+	embeddings = list(model.embed(texts))
+	return [_normalize([float(v) for v in row.tolist()]) for row in embeddings]
 
 
 def index_papers(papers: list[dict], collection) -> int:
@@ -66,5 +90,8 @@ def index_papers(papers: list[dict], collection) -> int:
 
 
 def embed_query(query: str) -> list[float]:
-	embedding = _MODEL.encode(query, normalize_embeddings=True)
-	return [float(v) for v in embedding.tolist()]
+	model = _get_model()
+	embeddings = list(model.embed([query]))
+	if not embeddings:
+		return []
+	return _normalize([float(v) for v in embeddings[0].tolist()])

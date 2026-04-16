@@ -3,7 +3,7 @@ fastapi
 uvicorn[standard]
 httpx
 chromadb
-sentence-transformers
+fastembed
 groq
 python-dotenv
 arxiv
