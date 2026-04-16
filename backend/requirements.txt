@@ -3,7 +3,7 @@ fastapi
 uvicorn[standard]
 httpx
 chromadb
-fastembed
+fastembed; python_version < "3.13"
 groq
 python-dotenv
 arxiv
