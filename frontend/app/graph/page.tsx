@@ -598,13 +598,13 @@ function GraphPageContent() {
   const summaryError = selectedNodeId ? summaryErrorById[selectedNodeId] : "";
 
   return (
-    <main className="min-h-screen bg-slate-900 px-5 pb-8 pt-6 text-slate-100 md:px-8">
-      <div className="mx-auto w-full max-w-375">
+    <main className="min-h-screen bg-slate-950 text-slate-100 selection:bg-cyan-400/25">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <Nav selectedIds={selectedForGraph} />
 
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-50 md:text-4xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
               Research Graph
             </h1>
             <p className="mt-1 text-sm text-slate-400">
@@ -613,15 +613,15 @@ function GraphPageContent() {
           </div>
           <Link
             href="/"
-            className="rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-400 hover:text-white"
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
           >
             Back to Search
           </Link>
         </header>
 
         {requestedIds.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-800/40 p-10 text-center">
-            <p className="text-lg text-slate-300">
+          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/60 p-10 text-center">
+            <p className="text-lg text-slate-200">
               No paper IDs were provided. Open this page with an ids query
               string.
             </p>
@@ -632,35 +632,35 @@ function GraphPageContent() {
         )}
 
         {requestedIds.length > 0 && (
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 shadow-xl shadow-slate-950/30">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleZoomBy(1.2)}
-                    className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-600"
+                    className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-700"
                   >
                     Zoom In
                   </button>
                   <button
                     type="button"
                     onClick={() => handleZoomBy(0.8)}
-                    className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-600"
+                    className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-700"
                   >
                     Zoom Out
                   </button>
                   <button
                     type="button"
                     onClick={handleResetLayout}
-                    className="rounded-lg bg-cyan-500 px-3 py-1.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                    className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
                   >
                     Reset Layout
                   </button>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-2 rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-200">
+                  <label className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs text-slate-200">
                     <input
                       type="checkbox"
                       checked={showCoAuthorEdges}
@@ -671,7 +671,7 @@ function GraphPageContent() {
                     />
                     co-author
                   </label>
-                  <label className="flex items-center gap-2 rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-200">
+                  <label className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs text-slate-200">
                     <input
                       type="checkbox"
                       checked={showSameFieldEdges}
@@ -686,7 +686,7 @@ function GraphPageContent() {
               </div>
 
               {isLoadingGraph && (
-                <div className="flex h-155 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70">
+                <div className="flex h-155 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/70">
                   <p className="animate-pulse text-sm text-slate-300">
                     Loading graph...
                   </p>
@@ -706,7 +706,7 @@ function GraphPageContent() {
                 !graphError &&
                 graphData &&
                 graphData.nodes.length === 0 && (
-                  <div className="flex h-155 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70 px-8 text-center">
+                  <div className="flex h-155 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/70 px-8 text-center">
                     <p className="text-slate-300">
                       No nodes were returned for the selected papers.
                     </p>
@@ -720,18 +720,18 @@ function GraphPageContent() {
                   <svg
                     ref={svgRef}
                     viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-                    className="h-155 w-full rounded-xl border border-slate-700 bg-slate-900/90"
+                    className="h-155 w-full rounded-xl border border-slate-800 bg-slate-950/90"
                   />
                 )}
             </section>
 
-            <aside className="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 shadow-xl shadow-slate-950/30">
+            <aside className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
               <h2 className="mb-3 text-lg font-semibold text-slate-100">
                 Paper Details
               </h2>
 
               {!selectedNode && (
-                <p className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
+                <p className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
                   Click any node to inspect the paper details, open the PDF, and
                   generate a summary.
                 </p>
@@ -739,7 +739,7 @@ function GraphPageContent() {
 
               {selectedNode && (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                     <p className="text-xs uppercase tracking-wide text-cyan-300">
                       arXiv ID
                     </p>
@@ -748,7 +748,7 @@ function GraphPageContent() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                     <h3 className="text-base font-semibold leading-6 text-slate-100">
                       {selectedNode.title}
                     </h3>
@@ -762,7 +762,7 @@ function GraphPageContent() {
                       {selectedNode.categories.slice(0, 6).map((category) => (
                         <span
                           key={`${selectedNode.id}-${category}`}
-                          className="rounded-full border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200"
+                          className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
                         >
                           {category}
                         </span>
@@ -770,7 +770,7 @@ function GraphPageContent() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                     {detailsLoading && (
                       <p className="animate-pulse text-sm text-slate-300">
                         Loading full paper details...
@@ -796,7 +796,7 @@ function GraphPageContent() {
                       type="button"
                       onClick={summarizeSelectedNode}
                       disabled={summaryLoading}
-                      className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {summaryLoading ? "Summarizing..." : "Summarize"}
                     </button>
@@ -805,7 +805,7 @@ function GraphPageContent() {
                         href={selectedDetails.pdf_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-slate-500 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-300 hover:text-white"
+                        className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
                       >
                         Open PDF
                       </a>
@@ -819,7 +819,7 @@ function GraphPageContent() {
                   )}
 
                   {summaryText && (
-                    <div className="rounded-xl border border-cyan-400/30 bg-slate-900/60 p-3">
+                    <div className="rounded-xl border border-cyan-400/30 bg-slate-950 p-3">
                       <p className="mb-2 text-xs uppercase tracking-wide text-cyan-300">
                         Summary
                       </p>
@@ -836,7 +836,7 @@ function GraphPageContent() {
 
         {tooltip && (
           <div
-            className="pointer-events-none fixed z-50 w-80 rounded-xl border border-slate-600 bg-slate-950/95 p-3 text-xs text-slate-200 shadow-2xl shadow-slate-950/40"
+            className="pointer-events-none fixed z-50 w-80 rounded-xl border border-slate-700 bg-slate-950/95 p-3 text-xs text-slate-200 shadow-2xl shadow-slate-950/40"
             style={{ left: tooltip.x + 14, top: tooltip.y + 14 }}
           >
             <p className="text-sm font-semibold text-cyan-300">
@@ -857,9 +857,9 @@ function GraphPageContent() {
 
 function GraphPageFallback() {
   return (
-    <main className="min-h-screen bg-slate-900 px-5 pb-8 pt-6 text-slate-100 md:px-8">
-      <div className="mx-auto w-full max-w-375">
-        <div className="flex h-155 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70">
+    <main className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="flex h-155 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/70">
           <p className="animate-pulse text-sm text-slate-300">
             Loading graph...
           </p>

@@ -32,7 +32,6 @@ type SummaryState = {
 const AVAILABLE_CATEGORIES = ["cs.AI", "cs.LG", "cs.CV", "cs.CL", "stat.ML"];
 const CURRENT_YEAR = new Date().getFullYear();
 const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
-const GITHUB_REPO_URL = "https://github.com/Viper396/Scholytics";
 
 function clampScore(score: number): number {
   if (Number.isNaN(score)) {
@@ -59,13 +58,13 @@ function SkeletonCards() {
       {[0, 1, 2].map((key) => (
         <div
           key={key}
-          className="animate-pulse rounded-2xl border border-[#3b4949]/20 bg-[#171f33]/85 p-5"
+          className="animate-pulse rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
         >
-          <div className="mb-4 h-5 w-4/5 rounded bg-[#2d3449]" />
-          <div className="mb-2 h-4 w-2/3 rounded bg-[#2d3449]" />
-          <div className="mb-2 h-4 w-1/2 rounded bg-[#2d3449]" />
-          <div className="mb-2 h-4 w-full rounded bg-[#2d3449]" />
-          <div className="h-4 w-11/12 rounded bg-[#2d3449]" />
+          <div className="mb-4 h-5 w-4/5 rounded bg-slate-800" />
+          <div className="mb-2 h-4 w-2/3 rounded bg-slate-800" />
+          <div className="mb-2 h-4 w-1/2 rounded bg-slate-800" />
+          <div className="mb-2 h-4 w-full rounded bg-slate-800" />
+          <div className="h-4 w-11/12 rounded bg-slate-800" />
         </div>
       ))}
     </div>
@@ -100,9 +99,7 @@ export default function Home() {
   const normalizedSelectedForGraph = useMemo(() => {
     return Array.from(
       new Set(
-        selectedForGraph
-          .map((id) => id.trim())
-          .filter((id) => id.length > 0),
+        selectedForGraph.map((id) => id.trim()).filter((id) => id.length > 0),
       ),
     );
   }, [selectedForGraph]);
@@ -398,154 +395,71 @@ export default function Home() {
     }
   }
 
-  function openGithubRepo() {
-    window.open(GITHUB_REPO_URL, "_blank", "noopener,noreferrer");
-  }
-
   const showEmptyPrompt = !hasSearched && !isLoading && !errorMessage;
   const showNoResults =
     !isLoading && !errorMessage && hasSearched && results.length === 0;
 
   return (
-    <main className="min-h-screen bg-[#0b1326] text-[#dae2fd] selection:bg-[#62e6ff]/30">
-      <aside className="fixed left-0 top-0 z-40 hidden h-full w-64 flex-col border-r border-[#3b4949]/20 bg-[#131b2e]/65 backdrop-blur-xl lg:flex">
-        <div className="p-6">
-          <h1 className="text-xl font-bold tracking-tight text-[#62e6ff]">
-            Editorial Intelligence
-          </h1>
-          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-[#bac9c9]/70">
-            Luminescent Archivist
-          </p>
-        </div>
-
-        <nav className="flex-1 space-y-2 px-4 py-4">
-          <button className="w-full rounded-lg px-4 py-3 text-left text-sm text-[#bac9c9] transition hover:bg-[#2d3449]/40 hover:text-[#62e6ff]">
-            Dashboard
-          </button>
-          <button className="w-full rounded-lg border-l-2 border-[#62e6ff] bg-[#2d3449]/50 px-4 py-3 text-left text-sm font-semibold text-[#62e6ff]">
-            Library
-          </button>
-          <button className="w-full rounded-lg px-4 py-3 text-left text-sm text-[#bac9c9] transition hover:bg-[#2d3449]/40 hover:text-[#62e6ff]">
-            Analytics
-          </button>
-          <button className="w-full rounded-lg px-4 py-3 text-left text-sm text-[#bac9c9] transition hover:bg-[#2d3449]/40 hover:text-[#62e6ff]">
-            Intelligence
-          </button>
-          <button className="w-full rounded-lg px-4 py-3 text-left text-sm text-[#bac9c9] transition hover:bg-[#2d3449]/40 hover:text-[#62e6ff]">
-            Settings
-          </button>
-        </nav>
-
-        <div className="border-t border-[#3b4949]/20 p-4">
-          <button className="w-full rounded-xl bg-linear-to-r from-[#62e6ff] to-[#04cce6] px-4 py-3 text-sm font-bold text-[#00363e]">
-            New Analysis
-          </button>
-        </div>
-
-        <div className="space-y-1 p-4 text-xs text-[#bac9c9]/80">
-          <button className="w-full rounded-lg px-4 py-2 text-left transition hover:bg-[#2d3449]/30 hover:text-[#62e6ff]">
-            Support
-          </button>
-          <button
-            type="button"
-            onClick={openGithubRepo}
-            className="w-full rounded-lg px-4 py-2 text-left transition hover:bg-[#2d3449]/30 hover:text-[#62e6ff]"
-          >
-            Github
-          </button>
-        </div>
-      </aside>
-
-      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-[#3b4949]/20 bg-[#0b1326]/80 px-4 backdrop-blur-md lg:ml-64 lg:w-[calc(100%-16rem)] lg:pl-8 lg:pr-8">
-        <div className="flex items-center gap-6">
-          <span className="text-xl font-black tracking-tight text-[#62e6ff] lg:text-2xl">
-            Scholytics
-          </span>
-          <div className="hidden items-center gap-6 md:flex">
-            <span className="border-b-2 border-[#62e6ff] pb-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#62e6ff]">
-              Trends
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#bac9c9]">
-              Archives
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openGithubRepo}
-            className="rounded-lg border border-[#3b4949] px-3 py-1.5 text-xs font-semibold text-[#dae2fd] transition hover:bg-[#2d3449]/70"
-          >
-            Connect GitHub
-          </button>
-          <Link
-            href={graphHref}
-            className="rounded-lg bg-linear-to-r from-[#62e6ff] to-[#04cce6] px-3 py-1.5 text-xs font-bold text-[#00363e] transition hover:opacity-90"
-          >
-            Graph ({selectedGraphCount})
-          </Link>
-        </div>
-      </header>
-
-      <div className="relative overflow-hidden lg:ml-64">
-        <div className="pointer-events-none absolute -right-24 top-0 h-128 w-lg rounded-full bg-[#62e6ff]/10 blur-[120px]" />
-        <div className="pointer-events-none absolute -left-24 top-96 h-96 w-96 rounded-full bg-[#7be7d9]/10 blur-[100px]" />
-
-        <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-14 pt-24 sm:px-8 lg:px-12">
-          <div className="mb-10 space-y-4 text-center">
-            <h2 className="text-4xl font-bold tracking-tight text-[#dae2fd] sm:text-5xl lg:text-6xl">
-              Synthesize the <span className="italic text-[#62e6ff]">Unseen</span>.
-            </h2>
-            <p className="mx-auto max-w-2xl text-base text-[#bac9c9] sm:text-lg">
-              Traverse fast-moving research with an editorial lens. Scholytics combines semantic retrieval, synthesis, and graph exploration in one workflow.
+    <main className="min-h-screen bg-slate-950 text-slate-100 selection:bg-cyan-400/25">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Scholytics
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Semantic paper discovery, synthesis, and graph exploration.
             </p>
           </div>
+          <Link
+            href={graphHref}
+            className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+          >
+            <span>Graph</span>
+            <span className="rounded-full bg-slate-950/10 px-2 py-0.5 text-xs">
+              {selectedGraphCount}
+            </span>
+          </Link>
+        </header>
 
-          <form onSubmit={handleSearchSubmit} className="group w-full max-w-4xl">
-            <div className="relative rounded-2xl bg-linear-to-r from-[#62e6ff]/20 to-[#7be7d9]/15 p-px transition duration-300 group-focus-within:shadow-[0_0_30px_rgba(98,230,255,0.25)]">
-              <div className="flex items-center gap-2 rounded-2xl bg-[#060e20] p-2 pl-5">
-                <input
-                  value={queryInput}
-                  onChange={(event) => setQueryInput(event.target.value)}
-                  placeholder="Quantum Computing in Neural Networks..."
-                  className="h-12 w-full border-none bg-transparent text-lg text-[#dae2fd] placeholder:text-[#859493] focus:outline-none focus:ring-0"
-                />
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="rounded-xl bg-linear-to-r from-[#62e6ff] to-[#04cce6] px-6 py-3 text-sm font-bold text-[#00363e] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isLoading ? "Scanning..." : "Scan"}
-                </button>
-              </div>
+        <section className="mx-auto max-w-4xl text-center">
+          <h2 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            Search Research Faster
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-400 sm:text-lg">
+            Explore live arXiv results, generate concise summaries, and build
+            topic-level insights in one workflow.
+          </p>
+
+          <form onSubmit={handleSearchSubmit} className="mt-8">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                value={queryInput}
+                onChange={(event) => setQueryInput(event.target.value)}
+                placeholder="Search arXiv topics, methods, or questions"
+                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 text-base text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
+              />
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="h-12 rounded-xl bg-cyan-400 px-6 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoading ? "Searching..." : "Search"}
+              </button>
             </div>
           </form>
+        </section>
 
-          <div className="mt-6 w-full max-w-5xl rounded-2xl border border-[#3b4949]/25 bg-[#2d3449]/45 p-6 backdrop-blur-xl">
+        <section className="mx-auto mt-8 w-full max-w-5xl">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/75 p-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#62e6ff]">
-                  Temporal Range
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">
+                  Year Range
                 </p>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 rounded-lg border border-[#3b4949]/30 bg-[#060e20] px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-[#859493]">
-                      From
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#dae2fd]">
-                      {yearFrom}
-                    </p>
-                  </div>
-                  <div className="h-px w-4 bg-[#3b4949]" />
-                  <div className="flex-1 rounded-lg border border-[#3b4949]/30 bg-[#060e20] px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-[#859493]">
-                      To
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#dae2fd]">
-                      {CURRENT_YEAR}
-                    </p>
-                  </div>
+                <div className="mb-3 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-300">
+                  <span>From: {yearFrom}</span>
+                  <span>To: {CURRENT_YEAR}</span>
                 </div>
                 <input
                   type="range"
@@ -553,13 +467,13 @@ export default function Home() {
                   max={CURRENT_YEAR}
                   value={yearFrom}
                   onChange={(event) => setYearFrom(Number(event.target.value))}
-                  className="w-full accent-[#62e6ff]"
+                  className="w-full accent-cyan-400"
                 />
               </div>
 
-              <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#62e6ff]">
-                  Domain Filter
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">
+                  Categories
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {AVAILABLE_CATEGORIES.map((category) => {
@@ -569,10 +483,10 @@ export default function Home() {
                         key={category}
                         type="button"
                         onClick={() => toggleCategory(category)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                           active
-                            ? "border-[#62e6ff]/40 bg-[#62e6ff]/15 text-[#62e6ff]"
-                            : "border-[#3b4949]/35 bg-[#171f33] text-[#bac9c9] hover:border-[#62e6ff]/30 hover:text-[#dae2fd]"
+                            ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-300"
+                            : "border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500"
                         }`}
                       >
                         {category}
@@ -582,242 +496,252 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="result-count"
-                    className="text-xs font-bold uppercase tracking-[0.18em] text-[#62e6ff]"
-                  >
-                    Extraction Depth
-                  </label>
-                  <span className="rounded bg-[#2d3449] px-2 py-0.5 text-[10px] font-bold text-[#dae2fd]">
-                    {maxResults} results
-                  </span>
-                </div>
+              <div>
+                <label
+                  htmlFor="result-count"
+                  className="mb-3 block text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300"
+                >
+                  Result Count
+                </label>
                 <select
                   id="result-count"
                   value={maxResults}
-                  onChange={(event) => setMaxResults(Number(event.target.value))}
-                  className="h-11 w-full rounded-lg border border-[#3b4949]/35 bg-[#060e20] px-3 text-sm text-[#dae2fd] outline-none focus:border-[#62e6ff]/40"
+                  onChange={(event) =>
+                    setMaxResults(Number(event.target.value))
+                  }
+                  className="h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={25}>25</option>
                 </select>
-                <p className="text-xs text-[#859493]">
-                  Added to graph: <span className="font-semibold text-[#62e6ff]">{selectedGraphCount}</span>
+                <p className="mt-2 text-xs text-slate-400">
+                  Added to graph:{" "}
+                  <span className="font-semibold text-cyan-300">
+                    {selectedGraphCount}
+                  </span>
                 </p>
               </div>
             </div>
           </div>
+        </section>
 
-          <section className="mt-10 w-full">
-            {showEmptyPrompt && (
-              <div className="grid h-full min-h-64 place-items-center rounded-2xl border border-dashed border-[#3b4949]/30 bg-[#171f33]/35 p-8 text-center">
-                <div>
-                  <p className="text-3xl font-semibold text-[#dae2fd]">Search for any research topic</p>
-                  <p className="mt-2 text-sm text-[#859493]">Start with a concept, method, or research question.</p>
+        <section className="mx-auto mt-10 w-full max-w-6xl">
+          {showEmptyPrompt && (
+            <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
+              <div>
+                <p className="text-3xl font-semibold text-white">
+                  Search for any research topic
+                </p>
+                <p className="mt-2 text-sm text-slate-400">
+                  Start with a concept, method, or research question.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isLoading && <SkeletonCards />}
+
+          {!isLoading && errorMessage && (
+            <div className="mx-auto max-w-3xl rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-center">
+              <p className="mb-3 text-base text-rose-100">{errorMessage}</p>
+              <button
+                type="button"
+                onClick={() => runSearch(activeQuery || queryInput)}
+                className="rounded-lg bg-rose-400 px-5 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-300"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {showNoResults && (
+            <div className="mx-auto max-w-3xl rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-200">
+              No papers found. Try broadening your query or adjusting filters.
+            </div>
+          )}
+
+          {!isLoading && !errorMessage && results.length > 0 && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-2xl font-semibold text-white">
+                    What does research say about {activeQuery}?
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={generateSynthesis}
+                    disabled={isSynthesizing}
+                    className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSynthesizing ? "Generating..." : "Generate Synthesis"}
+                  </button>
                 </div>
-              </div>
-            )}
 
-            {isLoading && <SkeletonCards />}
+                {synthesisError && (
+                  <p className="mb-3 text-sm text-rose-300">{synthesisError}</p>
+                )}
 
-            {!isLoading && errorMessage && (
-              <div className="mx-auto max-w-3xl rounded-2xl border border-[#93000a]/50 bg-[#93000a]/20 p-6 text-center">
-                <p className="mb-3 text-base text-[#ffdad6]">{errorMessage}</p>
-                <button
-                  type="button"
-                  onClick={() => runSearch(activeQuery || queryInput)}
-                  className="rounded-lg bg-[#ffb4ab] px-5 py-2 text-sm font-semibold text-[#690005] transition hover:opacity-90"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
+                {(synthesisText || isSynthesizing) && (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                    <div className="prose prose-invert max-w-none text-sm leading-7 text-slate-200">
+                      <ReactMarkdown>{synthesisText}</ReactMarkdown>
+                      {isSynthesizing && (
+                        <span className="ml-1 inline-block h-5 w-2 animate-pulse rounded-sm bg-cyan-300 align-middle" />
+                      )}
+                    </div>
+                  </div>
+                )}
 
-            {showNoResults && (
-              <div className="mx-auto max-w-3xl rounded-2xl border border-[#3b4949]/30 bg-[#2d3449]/40 p-8 text-center text-[#dae2fd]">
-                No papers found. Try broadening your query or adjusting filters.
-              </div>
-            )}
-
-            {!isLoading && !errorMessage && results.length > 0 && (
-              <div className="space-y-5">
-                <div className="rounded-2xl border border-[#3b4949]/30 bg-[#171f33]/80 p-6 shadow-2xl shadow-black/20">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-2xl font-semibold text-[#dae2fd]">
-                      What does research say about {activeQuery}?
-                    </h3>
+                {isSynthesisComplete && synthesisText && (
+                  <div className="mt-3 flex justify-end">
                     <button
                       type="button"
-                      onClick={generateSynthesis}
-                      disabled={isSynthesizing}
-                      className="rounded-xl bg-linear-to-r from-[#62e6ff] to-[#04cce6] px-4 py-2 text-sm font-bold text-[#00363e] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={copySynthesis}
+                      className="rounded-lg border border-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800"
                     >
-                      {isSynthesizing ? "Generating..." : "Generate Synthesis"}
+                      {copyLabel}
                     </button>
                   </div>
-
-                  {synthesisError && (
-                    <p className="mb-3 text-sm text-[#ffb4ab]">{synthesisError}</p>
-                  )}
-
-                  {(synthesisText || isSynthesizing) && (
-                    <div className="rounded-xl border border-[#3b4949]/35 bg-[#060e20] p-4">
-                      <div className="prose prose-invert max-w-none text-sm leading-7 text-[#dae2fd]">
-                        <ReactMarkdown>{synthesisText}</ReactMarkdown>
-                        {isSynthesizing && (
-                          <span className="ml-1 inline-block h-5 w-2 animate-pulse rounded-sm bg-[#62e6ff] align-middle" />
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {isSynthesisComplete && synthesisText && (
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={copySynthesis}
-                        className="rounded-lg border border-[#3b4949]/40 px-4 py-1.5 text-xs font-semibold text-[#dae2fd] transition hover:bg-[#2d3449]/45"
-                      >
-                        {copyLabel}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {results.map((paper) => {
-                    const score = clampScore(paper.relevance_score);
-                    const summaryState = summaryById[paper.arxiv_id];
-                    const abstractExpanded = !!expandedAbstracts[paper.arxiv_id];
-                    const inGraph = normalizedSelectedForGraph.includes(
-                      paper.arxiv_id,
-                    );
-
-                    return (
-                      <article
-                        key={paper.arxiv_id}
-                        className="rounded-2xl border border-[#3b4949]/30 bg-[#171f33]/85 p-5 shadow-xl shadow-black/20"
-                      >
-                        <h4 className="mb-2 line-clamp-2 text-lg font-semibold text-[#dae2fd]">
-                          {paper.title}
-                        </h4>
-
-                        <p className="mb-1 text-sm text-[#bac9c9]">
-                          {paper.authors.join(", ") || "Unknown authors"}
-                        </p>
-                        <p className="mb-3 text-xs text-[#859493]">
-                          Published: {formatDate(paper.published)}
-                        </p>
-
-                        <div className="mb-3 flex flex-wrap gap-2">
-                          {paper.categories.slice(0, 4).map((category) => (
-                            <span
-                              key={`${paper.arxiv_id}-${category}`}
-                              className="rounded-full border border-[#3b4949]/40 bg-[#2d3449]/55 px-2 py-1 text-xs text-[#dae2fd]"
-                            >
-                              {category}
-                            </span>
-                          ))}
-                        </div>
-
-                        <div className="mb-3">
-                          <div className="mb-1 flex items-center justify-between text-xs">
-                            <span className="text-[#859493]">Relevance</span>
-                            <span className="font-medium text-[#62e6ff]">
-                              {(score * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="h-2 rounded-full bg-[#2d3449]">
-                            <div
-                              className="h-2 rounded-full bg-linear-to-r from-[#62e6ff] to-[#04cce6] transition-all"
-                              style={{ width: `${(score * 100).toFixed(1)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mb-3 text-sm text-[#bac9c9]">
-                          <p
-                            className={
-                              abstractExpanded
-                                ? "leading-6"
-                                : "overflow-hidden leading-6 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]"
-                            }
-                          >
-                            {paper.abstract}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => toggleAbstract(paper.arxiv_id)}
-                            className="mt-1 text-xs font-medium text-[#62e6ff] hover:text-[#a2eeff]"
-                          >
-                            {abstractExpanded ? "Show less" : "Read more"}
-                          </button>
-                        </div>
-
-                        <div className="mb-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => summarizePaper(paper.arxiv_id)}
-                            disabled={summaryState?.loading}
-                            className="rounded-lg bg-linear-to-r from-[#62e6ff] to-[#04cce6] px-3 py-1.5 text-xs font-semibold text-[#00363e] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {summaryState?.loading ? "Summarizing..." : "Summarize"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleGraphSelection(paper.arxiv_id)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                              inGraph
-                                ? "bg-[#6bd8cb] text-[#00201d] hover:bg-[#89f5e7]"
-                                : "border border-[#3b4949]/40 bg-[#2d3449]/60 text-[#dae2fd] hover:bg-[#3e495d]"
-                            }`}
-                          >
-                            {inGraph ? "Added to Graph" : "Add to Graph"}
-                          </button>
-
-                          <a
-                            href={paper.pdf_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-lg border border-[#3b4949]/45 px-3 py-1.5 text-xs font-semibold text-[#dae2fd] transition hover:bg-[#2d3449]/45"
-                          >
-                            PDF
-                          </a>
-                        </div>
-
-                        {summaryState?.open && (
-                          <div className="rounded-xl border border-[#62e6ff]/30 bg-[#060e20] p-3">
-                            {summaryState.loading && (
-                              <p className="text-sm text-[#a2eeff]">Generating summary...</p>
-                            )}
-                            {!summaryState.loading && summaryState.error && (
-                              <p className="text-sm text-[#ffb4ab]">{summaryState.error}</p>
-                            )}
-                            {!summaryState.loading &&
-                              !summaryState.error &&
-                              summaryState.summary && (
-                                <div className="space-y-2">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-[#62e6ff]">
-                                    Summary
-                                  </p>
-                                  <p className="text-sm leading-6 text-[#dae2fd]">
-                                    {summaryState.summary}
-                                  </p>
-                                </div>
-                              )}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
+                )}
               </div>
-            )}
-          </section>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {results.map((paper) => {
+                  const score = clampScore(paper.relevance_score);
+                  const summaryState = summaryById[paper.arxiv_id];
+                  const abstractExpanded = !!expandedAbstracts[paper.arxiv_id];
+                  const inGraph = normalizedSelectedForGraph.includes(
+                    paper.arxiv_id,
+                  );
+
+                  return (
+                    <article
+                      key={paper.arxiv_id}
+                      className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"
+                    >
+                      <h4 className="mb-2 line-clamp-2 text-lg font-semibold text-white">
+                        {paper.title}
+                      </h4>
+
+                      <p className="mb-1 text-sm text-slate-300">
+                        {paper.authors.join(", ") || "Unknown authors"}
+                      </p>
+                      <p className="mb-3 text-xs text-slate-400">
+                        Published: {formatDate(paper.published)}
+                      </p>
+
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {paper.categories.slice(0, 4).map((category) => (
+                          <span
+                            key={`${paper.arxiv_id}-${category}`}
+                            className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                          >
+                            {category}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="mb-1 flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Relevance</span>
+                          <span className="font-medium text-cyan-300">
+                            {(score * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-800">
+                          <div
+                            className="h-2 rounded-full bg-cyan-400 transition-all"
+                            style={{ width: `${(score * 100).toFixed(1)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-3 text-sm text-slate-300">
+                        <p
+                          className={
+                            abstractExpanded
+                              ? "leading-6"
+                              : "overflow-hidden leading-6 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]"
+                          }
+                        >
+                          {paper.abstract}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => toggleAbstract(paper.arxiv_id)}
+                          className="mt-1 text-xs font-medium text-cyan-300 hover:text-cyan-200"
+                        >
+                          {abstractExpanded ? "Show less" : "Read more"}
+                        </button>
+                      </div>
+
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => summarizePaper(paper.arxiv_id)}
+                          disabled={summaryState?.loading}
+                          className="rounded-lg bg-cyan-400 px-3 py-1.5 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {summaryState?.loading
+                            ? "Summarizing..."
+                            : "Summarize"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleGraphSelection(paper.arxiv_id)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                            inGraph
+                              ? "bg-emerald-300 text-emerald-950 hover:bg-emerald-200"
+                              : "border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                          }`}
+                        >
+                          {inGraph ? "Added to Graph" : "Add to Graph"}
+                        </button>
+
+                        <a
+                          href={paper.pdf_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800"
+                        >
+                          PDF
+                        </a>
+                      </div>
+
+                      {summaryState?.open && (
+                        <div className="rounded-xl border border-cyan-400/25 bg-slate-950 p-3">
+                          {summaryState.loading && (
+                            <p className="text-sm text-cyan-200">
+                              Generating summary...
+                            </p>
+                          )}
+                          {!summaryState.loading && summaryState.error && (
+                            <p className="text-sm text-rose-300">
+                              {summaryState.error}
+                            </p>
+                          )}
+                          {!summaryState.loading &&
+                            !summaryState.error &&
+                            summaryState.summary && (
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                                  Summary
+                                </p>
+                                <p className="text-sm leading-6 text-slate-200">
+                                  {summaryState.summary}
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </main>
