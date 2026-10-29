@@ -422,4 +422,97 @@ describe('Home page - End to End Workflows', () => {
 
     expect(screen.getByRole('button', { name: /Generate topic synthesis/i })).toBeInTheDocument();
   });
+
+  // -------------------------------------------------------------------------
+  // 6. Paper Comparison Matrix Workflow
+  // -------------------------------------------------------------------------
+  it('toggles paper comparison selection and renders structured matrix', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockSearchResults,
+    });
+
+    render(<Home />);
+    const input = screen.getByPlaceholderText(/Search arXiv topics/i);
+    fireEvent.change(input, { target: { value: 'quantum computing' } });
+    fireEvent.click(screen.getByRole('button', { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Quantum Supremacy via Random Circuit Sampling')).toBeInTheDocument();
+    });
+
+    // Toggle both papers into comparison
+    const compareBtn1 = screen.getByRole('button', {
+      name: /Add Quantum Supremacy via Random Circuit Sampling to comparison/i,
+    });
+    fireEvent.click(compareBtn1);
+    expect(compareBtn1).toHaveTextContent('✓ In Compare');
+
+    const compareBtn2 = screen.getByRole('button', {
+      name: /Add Error Mitigation in Noisy Intermediate-Scale Quantum Processors to comparison/i,
+    });
+    fireEvent.click(compareBtn2);
+    expect(compareBtn2).toHaveTextContent('✓ In Compare');
+
+    // The compare button in the synthesis panel now reflects 2 selected papers
+    const executeCompareBtn = screen.getByRole('button', {
+      name: /Compare selected papers/i,
+    });
+    expect(executeCompareBtn).toHaveTextContent('Compare (2)');
+
+    // Mock comparison response
+    const mockComparisonResult = {
+      papers: [
+        {
+          arxiv_id: '2301.00001',
+          title: 'Quantum Supremacy via Random Circuit Sampling',
+          entry_url: 'https://arxiv.org/abs/2301.00001',
+          pdf_url: 'https://arxiv.org/pdf/2301.00001',
+          published: '2023-01-15',
+          authors: ['Alice Smith'],
+          research_question: 'Demonstrate quantum computational advantage',
+          method: 'Random circuit sampling on Sycamore',
+          datasets_or_setup: '53 superconducting qubits',
+          reported_findings: 'Cross-entropy benchmarking shows superiority over classical supercomputers',
+          limitations: 'Not explicitly stated in abstract',
+        },
+        {
+          arxiv_id: '2301.00002',
+          title: 'Error Mitigation in Noisy Intermediate-Scale Quantum Processors',
+          entry_url: 'https://arxiv.org/abs/2301.00002',
+          pdf_url: 'https://arxiv.org/pdf/2301.00002',
+          published: '2023-02-10',
+          authors: ['Dave Miller'],
+          research_question: 'Mitigate gate noise in NISQ devices',
+          method: 'Zero-noise extrapolation and probabilistic error cancellation',
+          datasets_or_setup: 'Not explicitly reported in abstract',
+          reported_findings: 'Extends coherence limit by factor of 3',
+          limitations: 'Exponential sampling overhead for deep circuits',
+        },
+      ],
+      similarities: ['Both evaluate superconducting quantum architectures.'],
+      differences: ['Paper 1 benchmarks sampling while Paper 2 develops noise mitigation techniques.'],
+      research_gaps: ['Scalability to fault-tolerant threshold without exponential sampling cost.'],
+      disclaimer: 'Comparative matrix generated from author-reported abstracts.',
+    };
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockComparisonResult,
+    });
+
+    await act(async () => {
+      fireEvent.click(executeCompareBtn);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Comparative Analysis Matrix')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Demonstrate quantum computational advantage')).toBeInTheDocument();
+    expect(screen.getByText('Mitigate gate noise in NISQ devices')).toBeInTheDocument();
+    expect(screen.getByText('53 superconducting qubits')).toBeInTheDocument();
+    expect(screen.getByText('Both evaluate superconducting quantum architectures.')).toBeInTheDocument();
+    expect(screen.getByText(/Model Interpretation/i)).toBeInTheDocument();
+  });
 });

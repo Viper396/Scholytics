@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import time
@@ -12,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from db.vector_store import canonicalize_arxiv_id
-from services import arxiv_client, bm25, embedder, fusion, ingestion, summarizer
+from services import arxiv_client, bm25, embedder, fusion, ingestion, reranker, summarizer
 
 logger = logging.getLogger(__name__)
 
@@ -245,6 +246,35 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 			papers_by_id[canonicalize_arxiv_id(raw_id)] = paper
 
 	# ------------------------------------------------------------------
+	# Step 4b: Optional Cross-Encoder Reranking
+	# Evaluated only when ENABLE_RERANKER=true. Default is false to
+	# preserve sub-second latency and Render free-tier RAM limits.
+	# ------------------------------------------------------------------
+	if reranker.is_reranker_enabled() and matches:
+		try:
+			rerank_input = []
+			for m in matches:
+				cid = m["id"]
+				p = papers_by_id.get(cid) or {}
+				rerank_input.append({
+					"id": cid,
+					"title": p.get("title", ""),
+					"abstract": p.get("abstract", ""),
+					"score": m.get("score", 0.0),
+					"metadata": m.get("metadata", {}),
+				})
+			reranked_matches = reranker.rerank(
+				query=query,
+				candidates=rerank_input,
+				top_k=payload.max_results,
+			)
+			if reranked_matches:
+				matches = reranked_matches
+				retrieval_mode = f"{retrieval_mode}_reranked"
+		except Exception as exc:  # noqa: BLE001
+			logger.warning("Reranker invocation failed: %s; keeping original ordering", exc)
+
+	# ------------------------------------------------------------------
 	# Step 5: Application-level metadata filtering and result mapping
 	# Note: Date boundaries and fine-grained categories are enforced
 	# here to ensure exact precision regardless of vector backend syntax.
@@ -364,13 +394,21 @@ async def synthesize_search(payload: SearchSynthesizeRequest) -> StreamingRespon
 	if not papers:
 		raise HTTPException(status_code=404, detail="No papers found for the provided arXiv IDs")
 
+	# Build structured grounding sources
+	source_records = summarizer.build_source_records(papers)
+	valid_indices = {int(s["source_index"]) for s in source_records}
+
 	def event_stream():
+		# Step 1: Emit structured grounding sources metadata event
+		sources_json = json.dumps(source_records)
+		yield f"event: sources\ndata: {sources_json}\n\n"
+
+		accumulated_tokens: list[str] = []
 		try:
 			for token in summarizer.generate_search_summary(query, papers):
+				accumulated_tokens.append(token)
 				# Each token may contain newlines; emit each non-empty line separately.
 				# SSE event format: each "event" is terminated by a blank line (\n\n).
-				# A single token (possibly multi-line) is emitted as one SSE event
-				# with one data: field per line, all grouped before the blank line.
 				lines = token.splitlines() if token else []
 				if not lines:
 					lines = [""]
@@ -378,9 +416,24 @@ async def synthesize_search(payload: SearchSynthesizeRequest) -> StreamingRespon
 				yield f"{data_lines}\n\n"
 		except Exception as exc:  # noqa: BLE001
 			logger.error("Synthesis stream error: %s", exc)
-			yield "event: error\ndata: Synthesis unavailable.\n\n"
+			exc_str = str(exc)
+			exc_name = type(exc).__name__.lower()
+			if "401" in exc_str or "authentication" in exc_name or "invalid_api_key" in exc_str:
+				err_msg = "Groq authentication failed: Invalid GROQ_API_KEY. Please verify your API key."
+			elif "429" in exc_str or "ratelimit" in exc_name:
+				err_msg = "Groq rate limit reached. Please wait a moment before trying again."
+			else:
+				err_msg = "Synthesis unavailable."
+			yield f"event: error\ndata: {err_msg}\n\n"
 			return
 
+		# Step 2: Validate inline citations against the retrieved source set
+		full_text = "".join(accumulated_tokens)
+		validation = summarizer.validate_citations(full_text, valid_indices)
+		validation_json = json.dumps(validation)
+		yield f"event: validation\ndata: {validation_json}\n\n"
+
+		# Step 3: Stream completion
 		yield "event: done\ndata: [DONE]\n\n"
 
 	return StreamingResponse(event_stream(), media_type="text/event-stream")

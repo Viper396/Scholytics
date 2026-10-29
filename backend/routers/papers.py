@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from services import arxiv_client, summarizer
+from services import arxiv_client, comparer, summarizer
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,26 @@ class SummarizeBatchRequest(BaseModel):
 				validated.append(cleaned)
 				seen.add(cleaned)
 		return validated
+
+
+class ComparePapersRequest(BaseModel):
+	arxiv_ids: list[str] = Field(..., min_length=2, max_length=4)
+	papers: list[dict[str, Any]] | None = None
+	query: str | None = None
+
+	@field_validator("arxiv_ids")
+	@classmethod
+	def validate_compare_ids(cls, value: list[str]) -> list[str]:
+		validated = []
+		seen: set[str] = set()
+		for raw_id in value:
+			cleaned = _validate_arxiv_id_format(raw_id)
+			if cleaned not in seen:
+				validated.append(cleaned)
+				seen.add(cleaned)
+		if len(validated) < 2:
+			raise ValueError("At least 2 unique arXiv IDs are required for comparison")
+		return validated[:4]
 
 
 @router.get("/api/papers/{arxiv_id}")
@@ -140,3 +160,72 @@ async def summarize_batch(payload: SummarizeBatchRequest) -> dict[str, list[dict
 	]
 
 	return {"papers": papers_response}
+
+
+@router.post("/api/papers/compare", response_model=comparer.ComparisonResult)
+async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.ComparisonResult:
+	"""
+	Generate a structured comparison for 2 to 4 papers with validated fields and authentic links.
+	"""
+	papers: list[dict[str, Any]] = []
+
+	# 1. Use client-provided paper metadata if supplied
+	if payload.papers:
+		id_set = set(payload.arxiv_ids)
+		for p in payload.papers:
+			pid = str(p.get("arxiv_id", "")).strip()
+			if pid and pid in id_set:
+				papers.append(p)
+
+	# 2. Fetch any missing papers from arXiv
+	present_ids = {str(p.get("arxiv_id", "")).strip() for p in papers}
+	missing_ids = [aid for aid in payload.arxiv_ids if aid not in present_ids]
+
+	if missing_ids:
+		sem = asyncio.Semaphore(4)
+
+		async def fetch_one(aid: str) -> dict[str, Any] | None:
+			async with sem:
+				return await asyncio.to_thread(arxiv_client.fetch_paper_by_id, aid)
+
+		tasks = [fetch_one(aid) for aid in missing_ids]
+		fetched = await asyncio.gather(*tasks, return_exceptions=True)
+		for res in fetched:
+			if isinstance(res, dict):
+				papers.append(res)
+
+	if len(papers) < 2:
+		raise HTTPException(
+			status_code=404,
+			detail="Could not retrieve at least 2 valid papers for comparison.",
+		)
+
+	# Preserve requested order
+	papers_by_id = {str(p.get("arxiv_id", "")).strip(): p for p in papers}
+	ordered_papers = [papers_by_id[aid] for aid in payload.arxiv_ids if aid in papers_by_id]
+
+	try:
+		comparison = await asyncio.to_thread(
+			comparer.compare_papers,
+			papers=ordered_papers,
+			query=payload.query,
+		)
+		return comparison
+	except Exception as exc:  # noqa: BLE001
+		logger.error("Paper comparison failed: %s", exc)
+		exc_str = str(exc)
+		exc_name = type(exc).__name__.lower()
+		if "401" in exc_str or "authentication" in exc_name or "invalid_api_key" in exc_str:
+			raise HTTPException(
+				status_code=502,
+				detail="Groq authentication failed: Invalid GROQ_API_KEY. Please verify your API key in Render.",
+			) from exc
+		if "429" in exc_str or "ratelimit" in exc_name:
+			raise HTTPException(
+				status_code=429,
+				detail="Groq rate limit reached. Please wait a moment before requesting comparison.",
+			) from exc
+		raise HTTPException(
+			status_code=500,
+			detail=f"Failed to generate comparison: {exc_str}",
+		) from exc

@@ -86,6 +86,13 @@ async def lifespan(app: FastAPI):
 	except Exception as exc:  # noqa: BLE001
 		logger.warning("Embedder warm-up encountered an issue: %s", exc)
 
+	# Warm up reranker if explicitly enabled in environment
+	try:
+		from services import reranker
+		reranker.warm_up()
+	except Exception as exc:  # noqa: BLE001
+		logger.warning("Reranker warm-up issue: %s", exc)
+
 	logger.info("Scholytics backend started.")
 	yield
 	logger.info("Scholytics backend shutting down.")
@@ -135,8 +142,9 @@ async def readiness_check() -> dict[str, object]:
 	groq_key_configured = bool(os.getenv("GROQ_API_KEY", "").strip())
 	backend_name = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
 
-	from services import embedder
+	from services import embedder, reranker
 	emb_status = embedder.get_status()
+	rerank_status = reranker.get_status()
 
 	issues: list[str] = []
 	if vector_store is None:
@@ -152,5 +160,6 @@ async def readiness_check() -> dict[str, object]:
 		"vector_store_backend": backend_name,
 		"groq_configured": groq_key_configured,
 		"embedder": emb_status,
+		"reranker": rerank_status,
 		"issues": issues,
 	}
