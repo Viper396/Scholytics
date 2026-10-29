@@ -1,29 +1,28 @@
 "use client";
 
+import React, {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import PaperCard, { PaperResult } from "../components/PaperCard";
+import SynthesisPanel, {
+  SynthesisSource,
+  SynthesisValidation,
+} from "../components/SynthesisPanel";
+import ComparisonMatrix, { ComparisonResult } from "../components/ComparisonMatrix";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type PaperResult = {
-  arxiv_id: string;
-  title: string;
-  authors: string[];
-  abstract: string;
-  published: string;
-  categories: string[];
-  pdf_url: string;
-  entry_url: string;
-  relevance_score: number | null;
-  ranking_degraded?: boolean;
-};
 
 type SearchResponse = {
   query: string;
   results: PaperResult[];
   total: number;
-  ranking_note?: string;
+  ranking_note?: string | null;
 };
 
 type SummaryState = {
@@ -43,51 +42,15 @@ type ReadingListEntry = {
   savedAt: string;
 };
 
-type SynthesisSource = {
-  source_index: number;
-  arxiv_id: string;
-  title: string;
-  authors: string[];
-  published: string;
-  entry_url: string;
-  pdf_url: string;
-  has_abstract: boolean;
-  categories: string[];
-};
-
-type SynthesisValidation = {
-  cited_sources: number[];
-  invalid_citations: number[];
-  has_hallucinations: boolean;
-  citation_count: number;
-};
-
-type PaperComparisonItem = {
-  arxiv_id: string;
-  title: string;
-  entry_url: string;
-  pdf_url: string;
-  authors: string[];
-  published: string;
-  research_question: string;
-  method: string;
-  datasets_or_setup: string;
-  reported_findings: string;
-  limitations: string;
-};
-
-type ComparisonResult = {
-  papers: PaperComparisonItem[];
-  similarities: string[];
-  differences: string[];
-  research_gaps: string[];
-  disclaimer: string;
-};
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const AVAILABLE_CATEGORIES = [
-  "cs.AI", "cs.LG", "cs.CV", "cs.CL", "stat.ML",
+  "cs.AI",
+  "cs.CL",
+  "cs.CV",
+  "cs.LG",
+  "cs.RO",
+  "stat.ML",
 ];
 
 const EXAMPLE_QUERIES = [
@@ -102,22 +65,7 @@ const MIN_YEAR = 2015;
 const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
 const READING_LIST_STORAGE_KEY = "scholytics.readingList";
 
-// ─── Utility functions ────────────────────────────────────────────────────────
-
-function clampScore(score: number | null): number {
-  if (score === null || Number.isNaN(score)) return 0;
-  return Math.max(0, Math.min(1, score));
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value || "Unknown date";
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+// ─── Storage Helpers ──────────────────────────────────────────────────────────
 
 function loadReadingList(): ReadingListEntry[] {
   try {
@@ -129,7 +77,8 @@ function loadReadingList(): ReadingListEntry[] {
       (item) =>
         typeof item === "object" &&
         item !== null &&
-        typeof item.arxiv_id === "string",
+        typeof (item as ReadingListEntry).arxiv_id === "string" &&
+        typeof (item as ReadingListEntry).title === "string",
     );
   } catch {
     return [];
@@ -139,12 +88,10 @@ function loadReadingList(): ReadingListEntry[] {
 function saveReadingList(list: ReadingListEntry[]) {
   try {
     window.localStorage.setItem(READING_LIST_STORAGE_KEY, JSON.stringify(list));
-  } catch {
-    // localStorage may be full or unavailable; fail silently.
-  }
+  } catch {}
 }
 
-// ─── Skeleton loader ──────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SkeletonCards() {
   return (
@@ -153,27 +100,44 @@ function SkeletonCards() {
       role="status"
       aria-label="Loading search results"
     >
-      {[0, 1, 2, 3, 4, 5].map((key) => (
+      {Array.from({ length: 6 }).map((_, idx) => (
         <div
-          key={key}
-          className="animate-pulse rounded-[14px] border p-5"
+          key={idx}
+          className="animate-pulse rounded-[18px] p-5"
           style={{
-            borderColor: "var(--border-subtle)",
+            border: "1px solid var(--border-subtle)",
             backgroundColor: "var(--bg-surface)",
           }}
         >
-          <div className="mb-4 h-5 w-4/5 rounded-md" style={{ backgroundColor: "var(--bg-elevated)" }} />
-          <div className="mb-2 h-3.5 w-2/3 rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
-          <div className="mb-2 h-3.5 w-1/2 rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
-          <div className="mb-2 h-3 w-full rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
-          <div className="h-3 w-11/12 rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
+          <div
+            className="mb-3 h-4 w-1/3 rounded-full"
+            style={{ backgroundColor: "var(--bg-elevated)" }}
+          />
+          <div
+            className="mb-2 h-5 w-4/5 rounded"
+            style={{ backgroundColor: "var(--bg-elevated)" }}
+          />
+          <div
+            className="mb-4 h-3.5 w-1/2 rounded"
+            style={{ backgroundColor: "var(--bg-elevated)" }}
+          />
+          <div
+            className="mb-2 h-3 w-full rounded"
+            style={{ backgroundColor: "var(--bg-elevated)" }}
+          />
+          <div
+            className="mb-2 h-3 w-5/6 rounded"
+            style={{ backgroundColor: "var(--bg-elevated)" }}
+          />
+          <div
+            className="h-3 w-3/4 rounded"
+            style={{ backgroundColor: "var(--bg-elevated)" }}
+          />
         </div>
       ))}
     </div>
   );
 }
-
-// ─── Reading list panel ───────────────────────────────────────────────────────
 
 function ReadingListPanel({
   list,
@@ -187,40 +151,35 @@ function ReadingListPanel({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col shadow-2xl"
+    <aside
+      role="dialog"
+      aria-modal="true"
+      aria-label="Reading list"
+      className="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col p-6 shadow-2xl transition-transform"
       style={{
         backgroundColor: "var(--bg-surface)",
         borderLeft: "1px solid var(--border-default)",
       }}
-      role="dialog"
-      aria-label="Reading list"
     >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between p-4"
-        style={{ borderBottom: "1px solid var(--border-subtle)" }}
-      >
-        <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-          Reading List
-          <span
-            className="ml-2 rounded-full px-2 py-0.5 text-xs font-bold"
-            style={{
-              backgroundColor: "var(--cyan-subtle)",
-              color: "var(--text-accent)",
-            }}
-          >
-            {list.length}
-          </span>
-        </h2>
+      <div className="mb-4 flex items-center justify-between border-b pb-4" style={{ borderColor: "var(--border-subtle)" }}>
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="text-xl">📚</span>
+          <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+            Saved Papers ({list.length})
+          </h2>
+        </div>
         <div className="flex items-center gap-2">
           {list.length > 0 && (
             <button
               type="button"
               onClick={onClear}
-              className="rounded-md px-2 py-1 text-xs font-medium transition-colors hover:opacity-80"
-              style={{ color: "var(--error)", border: "1px solid var(--error-border)" }}
-              aria-label="Clear entire reading list"
+              className="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
+              style={{
+                border: "1px solid var(--border-subtle)",
+                backgroundColor: "var(--bg-elevated)",
+                color: "var(--text-secondary)",
+              }}
+              aria-label="Clear all saved papers"
             >
               Clear all
             </button>
@@ -228,11 +187,8 @@ function ReadingListPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:opacity-80"
-            style={{
-              backgroundColor: "var(--bg-elevated)",
-              color: "var(--text-secondary)",
-            }}
+            className="rounded-lg p-1.5 text-xs transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
+            style={{ color: "var(--text-secondary)" }}
             aria-label="Close reading list"
           >
             ✕
@@ -240,76 +196,82 @@ function ReadingListPanel({
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {list.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            No saved papers yet. Click{" "}
-            <span style={{ color: "var(--text-accent)" }}>Save</span> on any paper
-            to add it here. Papers are stored locally in this browser.
+      {list.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <span className="text-3xl mb-2" aria-hidden="true">📖</span>
+          <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+            No saved papers yet.
           </p>
-        ) : (
-          <ul className="space-y-3" role="list">
-            {list.map((entry) => (
-              <li
-                key={entry.arxiv_id}
-                className="rounded-xl p-3"
-                style={{
-                  backgroundColor: "var(--bg-elevated)",
-                  border: "1px solid var(--border-subtle)",
-                }}
-              >
-                <p
-                  className="mb-1 line-clamp-2 text-sm font-medium leading-snug"
+          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+            Click &ldquo;Save&rdquo; on any search result to build your reading list.
+          </p>
+        </div>
+      ) : (
+        <ul className="flex-1 space-y-3 overflow-y-auto pr-1" aria-label="Saved papers list">
+          {list.map((item) => (
+            <li
+              key={item.arxiv_id}
+              className="rounded-xl p-3.5 transition-colors"
+              style={{
+                border: "1px solid var(--border-subtle)",
+                backgroundColor: "var(--bg-page)",
+              }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <a
+                  href={item.entry_url || `https://arxiv.org/abs/${item.arxiv_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-xs hover:underline leading-snug"
                   style={{ color: "var(--text-primary)" }}
                 >
-                  {entry.title}
-                </p>
-                <p className="mb-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                  {formatDate(entry.published)} · {entry.arxiv_id}
-                </p>
+                  {item.title}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onRemove(item.arxiv_id)}
+                  className="shrink-0 text-xs transition-colors hover:opacity-80 p-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                  aria-label={`Remove ${item.title} from reading list`}
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                {item.authors.slice(0, 2).join(", ")}
+                {item.authors.length > 2 && " et al."}
+              </p>
+              <div className="mt-2.5 flex items-center justify-between text-[11px]">
+                <a
+                  href={item.entry_url || `https://arxiv.org/abs/${item.arxiv_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-[10px] hover:underline"
+                  style={{ color: "var(--text-accent-dim)" }}
+                >
+                  arXiv:{item.arxiv_id}
+                </a>
                 <div className="flex gap-2">
-                  {entry.pdf_url && (
-                    <a
-                      href={entry.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors"
-                      style={{
-                        backgroundColor: "var(--cyan-subtle)",
-                        color: "var(--text-accent)",
-                        border: "1px solid rgba(6,182,212,0.25)",
-                      }}
-                    >
-                      PDF
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onRemove(entry.arxiv_id)}
-                    className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
-                    style={{ color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }}
-                    aria-label={`Remove ${entry.title} from reading list`}
+                  <a
+                    href={item.pdf_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium hover:underline"
+                    style={{ color: "var(--text-accent)" }}
                   >
-                    Remove
-                  </button>
+                    PDF ↗
+                  </a>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <p
-        className="p-4 text-xs"
-        style={{
-          color: "var(--text-muted)",
-          borderTop: "1px solid var(--border-subtle)",
-        }}
-      >
-        Saved locally in this browser — not synced across devices.
+      <p className="mt-4 border-t pt-3 text-[11px] text-center" style={{ borderColor: "var(--border-subtle)", color: "var(--text-muted)" }}>
+        Saved locally in this browser.
       </p>
-    </div>
+    </aside>
   );
 }
 
@@ -559,7 +521,6 @@ export default function Home() {
         body: JSON.stringify({
           query: synthesisQuery,
           arxiv_ids: topArxivIds,
-          // Pass paper data to avoid re-fetching from arXiv in the backend.
           papers: topPapers,
         }),
         signal: controller.signal,
@@ -619,9 +580,7 @@ export default function Home() {
             try {
               const parsed = JSON.parse(data) as SynthesisSource[];
               setSynthesisSources(parsed);
-            } catch {
-              // ignore malformed source payload
-            }
+            } catch {}
             boundaryIndex = buffer.indexOf("\n\n");
             continue;
           }
@@ -630,9 +589,7 @@ export default function Home() {
             try {
               const parsed = JSON.parse(data) as SynthesisValidation;
               setSynthesisValidation(parsed);
-            } catch {
-              // ignore malformed validation payload
-            }
+            } catch {}
             boundaryIndex = buffer.indexOf("\n\n");
             continue;
           }
@@ -739,11 +696,11 @@ export default function Home() {
   }
 
   async function generateComparison(idsToCompare?: string[]) {
-    const targetIds = idsToCompare ?? (
-      selectedForCompare.length >= 2
-        ? selectedForCompare
-        : results.slice(0, 3).map((p) => p.arxiv_id)
-    );
+    const targetIds = Array.isArray(idsToCompare)
+      ? idsToCompare
+      : selectedForCompare.length >= 2
+      ? selectedForCompare
+      : results.slice(0, 3).map((p) => p.arxiv_id);
 
     if (targetIds.length < 2) {
       setComparisonError("Select at least 2 papers to generate a comparison.");
@@ -765,7 +722,6 @@ export default function Home() {
 
     const selectedPapers = results.filter((p) => boundedIds.includes(p.arxiv_id));
 
-    // Cancel any previous in-flight comparison.
     comparisonAbortRef.current?.abort();
     const controller = new AbortController();
     comparisonAbortRef.current = controller;
@@ -823,7 +779,6 @@ export default function Home() {
 
   function handleExampleClick(example: string) {
     setQueryInput(example);
-    // Fill input but don't auto-submit — user may want to adjust filters first.
   }
 
   function toggleCategory(category: string) {
@@ -917,9 +872,7 @@ export default function Home() {
           if (errData?.detail) {
             msg = typeof errData.detail === "string" ? errData.detail : JSON.stringify(errData.detail);
           }
-        } catch {
-          // fallback to generic
-        }
+        } catch {}
         throw new Error(msg);
       }
 
@@ -983,9 +936,9 @@ export default function Home() {
       >
         <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
 
-          {/* ── Header ──────────────────────────────────────────────────── */}
+          {/* ── Top Header / Brand Bar ───────────────────────────────────── */}
           <header
-            className="mb-10 flex flex-wrap items-center justify-between gap-3 rounded-[18px] p-4"
+            className="mb-10 flex flex-wrap items-center justify-between gap-3 rounded-[18px] p-4 shadow-sm"
             style={{
               border: "1px solid var(--border-default)",
               backgroundColor: "var(--bg-surface)",
@@ -993,11 +946,14 @@ export default function Home() {
           >
             <div className="flex items-center gap-3">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ backgroundColor: "var(--cyan-subtle)", border: "1px solid rgba(6,182,212,0.3)" }}
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{
+                  backgroundColor: "var(--cyan-subtle)",
+                  border: "1px solid rgba(6,182,212,0.3)",
+                }}
                 aria-hidden="true"
               >
-                <span style={{ color: "var(--text-accent)", fontSize: "1.1rem" }}>⬡</span>
+                <span style={{ color: "var(--text-accent)", fontSize: "1.2rem" }}>⬡</span>
               </div>
               <div>
                 <h1
@@ -1017,7 +973,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setShowReadingList(true)}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:opacity-80"
+                className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                 style={{
                   border: "1px solid var(--border-default)",
                   backgroundColor: "var(--bg-elevated)",
@@ -1029,7 +985,7 @@ export default function Home() {
                 <span className="hidden sm:inline">Saved</span>
                 {readingList.length > 0 && (
                   <span
-                    className="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                    className="rounded-full px-1.5 py-0.2 text-xs font-bold"
                     style={{
                       backgroundColor: "var(--cyan-subtle)",
                       color: "var(--text-accent)",
@@ -1043,7 +999,7 @@ export default function Home() {
               {/* Graph button */}
               <Link
                 href={graphHref}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90"
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                 style={{
                   backgroundColor: "var(--cyan-primary)",
                   color: "var(--cyan-text)",
@@ -1062,7 +1018,7 @@ export default function Home() {
             </div>
           </header>
 
-          {/* ── Hero + Search ────────────────────────────────────────────── */}
+          {/* ── Hero + Search Field ──────────────────────────────────────── */}
           <section className="mx-auto max-w-4xl text-center">
             <h2
               className="text-4xl font-extrabold tracking-tight sm:text-5xl"
@@ -1079,14 +1035,17 @@ export default function Home() {
               explore paper relationships — all in one workflow.
             </p>
 
-            {/* Example queries */}
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {/* Example suggested queries */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                Try:
+              </span>
               {EXAMPLE_QUERIES.map((example) => (
                 <button
                   key={example}
                   type="button"
                   onClick={() => handleExampleClick(example)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
+                  className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
                   style={{
                     border: "1px solid var(--border-default)",
                     backgroundColor: "var(--bg-elevated)",
@@ -1105,33 +1064,66 @@ export default function Home() {
                 <label htmlFor="search-input" className="sr-only">
                   Search arXiv research papers
                 </label>
-                <input
-                  id="search-input"
-                  value={queryInput}
-                  onChange={(event) => setQueryInput(event.target.value)}
-                  placeholder="Search arXiv topics, methods, or questions…"
-                  maxLength={400}
-                  autoComplete="off"
-                  className="h-12 w-full flex-1 rounded-xl px-4 text-base transition-all"
-                  style={{
-                    border: "1px solid var(--border-default)",
-                    backgroundColor: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                    outline: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border-focus)";
-                    e.currentTarget.style.boxShadow = "var(--shadow-cyan)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border-default)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                />
+                <div className="relative flex-1">
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"
+                    aria-hidden="true"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                  <input
+                    id="search-input"
+                    value={queryInput}
+                    onChange={(event) => setQueryInput(event.target.value)}
+                    placeholder="Search arXiv topics, methods, or questions…"
+                    maxLength={400}
+                    autoComplete="off"
+                    className="h-12 w-full rounded-xl pl-11 pr-10 text-base transition-all"
+                    style={{
+                      border: "1px solid var(--border-default)",
+                      backgroundColor: "var(--bg-input)",
+                      color: "var(--text-primary)",
+                      outline: "none",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "var(--border-focus)";
+                      e.currentTarget.style.boxShadow = "var(--shadow-cyan)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "var(--border-default)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  />
+                  {queryInput.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setQueryInput("")}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-xs transition-colors hover:opacity-80"
+                      style={{ color: "var(--text-muted)" }}
+                      aria-label="Clear search input"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="h-12 rounded-xl px-7 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-12 rounded-xl px-7 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                   style={{
                     backgroundColor: "var(--cyan-primary)",
                     color: "var(--cyan-text)",
@@ -1150,40 +1142,53 @@ export default function Home() {
             </form>
           </section>
 
-          {/* ── Filters ──────────────────────────────────────────────────── */}
+          {/* ── Filters Section ──────────────────────────────────────────── */}
           <section
-            className="mx-auto mt-6 w-full max-w-5xl rounded-[18px] p-5"
+            className="mx-auto mt-6 w-full max-w-5xl rounded-[18px] p-5 transition-all shadow-sm"
             style={{
-              border: "1px solid var(--border-subtle)",
+              border:
+                activeFilterCount > 0
+                  ? "1px solid rgba(6,182,212,0.35)"
+                  : "1px solid var(--border-subtle)",
               backgroundColor: "var(--bg-surface)",
             }}
             aria-label="Search filters"
           >
-            <div className="mb-3 flex items-center justify-between">
-              <p
-                className="text-xs font-semibold uppercase tracking-widest"
-                style={{ color: "var(--text-accent-dim)" }}
-              >
-                Filters
-                {activeFilterCount > 0 && (
+            <div className="mb-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <p
+                  className="text-xs font-bold uppercase tracking-widest"
+                  style={{ color: "var(--text-accent-dim)" }}
+                >
+                  Filters
+                </p>
+                {activeFilterCount > 0 ? (
                   <span
-                    className="ml-2 rounded-full px-2 py-0.5 text-xs normal-case"
+                    className="rounded-full px-2 py-0.5 text-xs font-semibold"
                     style={{
                       backgroundColor: "var(--cyan-subtle)",
                       color: "var(--text-accent)",
+                      border: "1px solid rgba(6,182,212,0.3)",
                     }}
                     aria-label={`${activeFilterCount} active filters`}
                   >
                     {activeFilterCount} active
                   </span>
+                ) : (
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    Default: All categories · 2015+
+                  </span>
                 )}
-              </p>
+              </div>
               {activeFilterCount > 0 && (
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="text-xs transition-colors hover:opacity-80"
-                  style={{ color: "var(--text-secondary)" }}
+                  className="text-xs font-medium transition-colors hover:underline focus-visible:outline-none"
+                  style={{ color: "var(--text-accent)" }}
                 >
                   Reset filters
                 </button>
@@ -1207,7 +1212,12 @@ export default function Home() {
                     color: "var(--text-secondary)",
                   }}
                 >
-                  <span>From: <strong style={{ color: "var(--text-primary)" }}>{yearFrom} or later</strong></span>
+                  <span>
+                    From:{" "}
+                    <strong style={{ color: "var(--text-primary)" }}>
+                      {yearFrom} or later
+                    </strong>
+                  </span>
                   <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                     {yearFrom > MIN_YEAR ? "Lower bound" : `All (${MIN_YEAR}+)`}
                   </span>
@@ -1238,7 +1248,11 @@ export default function Home() {
                 >
                   Categories
                 </p>
-                <div className="flex flex-wrap gap-2" role="group" aria-label="Research category filters">
+                <div
+                  className="flex flex-wrap gap-1.5"
+                  role="group"
+                  aria-label="Research category filters"
+                >
                   {AVAILABLE_CATEGORIES.map((category) => {
                     const active = selectedCategories.includes(category);
                     return (
@@ -1246,7 +1260,7 @@ export default function Home() {
                         key={category}
                         type="button"
                         onClick={() => toggleCategory(category)}
-                        className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+                        className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
                         style={{
                           border: active
                             ? "1px solid rgba(6,182,212,0.5)"
@@ -1254,11 +1268,14 @@ export default function Home() {
                           backgroundColor: active
                             ? "var(--cyan-subtle)"
                             : "var(--bg-elevated)",
-                          color: active ? "var(--text-accent)" : "var(--text-secondary)",
+                          color: active
+                            ? "var(--text-accent)"
+                            : "var(--text-secondary)",
                         }}
                         aria-pressed={active}
                         aria-label={`${active ? "Remove" : "Add"} ${category} filter`}
                       >
+                        {active && <span className="mr-1">✓</span>}
                         {category}
                       </button>
                     );
@@ -1307,13 +1324,16 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── Results area ─────────────────────────────────────────────── */}
-          <section className="mx-auto mt-8 w-full max-w-6xl" aria-label="Search results" aria-live="polite">
-
+          {/* ── Results Section ──────────────────────────────────────────── */}
+          <section
+            className="mx-auto mt-8 w-full max-w-6xl"
+            aria-label="Search results"
+            aria-live="polite"
+          >
             {/* Ranking degraded note */}
             {rankingNote && !isLoading && (
               <div
-                className="mb-4 rounded-xl px-4 py-3 text-sm"
+                className="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
                 style={{
                   border: "1px solid rgba(245,158,11,0.3)",
                   backgroundColor: "rgba(245,158,11,0.07)",
@@ -1321,7 +1341,8 @@ export default function Home() {
                 }}
                 role="alert"
               >
-                ⚠ {rankingNote}
+                <span>⚠</span>
+                <span>{rankingNote}</span>
               </div>
             )}
 
@@ -1337,15 +1358,24 @@ export default function Home() {
                 <div>
                   <div
                     className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl"
-                    style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}
+                    style={{
+                      backgroundColor: "var(--bg-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                    }}
                     aria-hidden="true"
                   >
                     🔭
                   </div>
-                  <p className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+                  <p
+                    className="text-xl font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     Search for any research topic
                   </p>
-                  <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <p
+                    className="mt-2 text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Try one of the example queries above, or type your own question.
                   </p>
                 </div>
@@ -1365,13 +1395,13 @@ export default function Home() {
                 }}
                 role="alert"
               >
-                <p className="mb-4 text-sm" style={{ color: "#fda4af" }}>
+                <p className="mb-4 text-sm font-medium" style={{ color: "#fda4af" }}>
                   {errorMessage}
                 </p>
                 <button
                   type="button"
                   onClick={() => runSearch(activeQuery || queryInput)}
-                  className="rounded-lg px-5 py-2 text-sm font-semibold transition-colors hover:opacity-80"
+                  className="rounded-lg px-5 py-2 text-sm font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                   style={{ backgroundColor: "var(--error)", color: "#fff0f3" }}
                 >
                   Retry
@@ -1389,643 +1419,50 @@ export default function Home() {
                 }}
                 role="status"
               >
-                <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+                <p
+                  className="text-lg font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   No papers found
                 </p>
                 <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  Try broadening your query, reducing the year filter, or removing category filters.
+                  Try broadening your query, reducing the year filter, or removing
+                  category filters.
                 </p>
               </div>
             )}
 
-            {/* Results */}
+            {/* Results list */}
             {!isLoading && !errorMessage && results.length > 0 && (
               <div className="space-y-6">
-
-                {/* Synthesis panel */}
-                <div
-                  className="rounded-[18px] p-6"
-                  style={{
-                    border: "1px solid var(--border-default)",
-                    backgroundColor: "var(--bg-surface)",
-                  }}
-                >
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h3
-                        className="text-lg font-semibold sm:text-xl"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        What does research say about{" "}
-                        <em style={{ color: "var(--text-accent)", fontStyle: "normal" }}>
-                          {activeQuery}
-                        </em>
-                        ?
-                      </h3>
-                      <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                        Synthesises the top {Math.min(results.length, 5)} results using Groq · abstract-based only
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isSynthesizing && (
-                        <button
-                          type="button"
-                          onClick={cancelSynthesis}
-                          className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-80"
-                          style={{
-                            border: "1px solid var(--border-default)",
-                            backgroundColor: "var(--bg-elevated)",
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={generateSynthesis}
-                        disabled={isSynthesizing}
-                        className="rounded-xl px-4 py-2 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{
-                          backgroundColor: "var(--cyan-primary)",
-                          color: "var(--cyan-text)",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSynthesizing)
-                            e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
-                        }}
-                        aria-label={isSynthesizing ? "Generating synthesis…" : "Generate topic synthesis"}
-                      >
-                        {isSynthesizing ? "Generating…" : "Generate Synthesis"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => generateComparison()}
-                        disabled={isComparing || results.length < 2}
-                        className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                        style={
-                          selectedForCompare.length >= 2
-                            ? {
-                                backgroundColor: "rgba(6,182,212,0.18)",
-                                border: "1px solid rgba(6,182,212,0.45)",
-                                color: "var(--text-accent)",
-                              }
-                            : {
-                                border: "1px solid var(--border-default)",
-                                backgroundColor: "var(--bg-elevated)",
-                                color: "var(--text-secondary)",
-                              }
-                        }
-                        aria-label="Compare selected papers"
-                      >
-                        {isComparing
-                          ? "Comparing…"
-                          : selectedForCompare.length >= 2
-                          ? `Compare (${selectedForCompare.length})`
-                          : "Compare Top 3"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {synthesisError && (
-                    <div
-                      className="mb-3 rounded-lg px-4 py-3 text-sm"
-                      style={{
-                        border: "1px solid var(--error-border)",
-                        backgroundColor: "var(--error-bg)",
-                        color: "#fda4af",
-                      }}
-                      role="alert"
-                    >
-                      {synthesisError}
-                    </div>
-                  )}
-
-                  {(synthesisText || isSynthesizing) && (
-                    <div
-                      className="rounded-xl p-4"
-                      style={{
-                        border: "1px solid var(--border-subtle)",
-                        backgroundColor: "var(--bg-page)",
-                      }}
-                    >
-                      <div className="synthesis-prose text-sm">
-                        <ReactMarkdown>{synthesisText}</ReactMarkdown>
-                        {isSynthesizing && (
-                          <span
-                            className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-sm align-middle"
-                            style={{ backgroundColor: "var(--text-accent)" }}
-                            aria-label="Generating…"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Grounding Sources & Attribution Validation */}
-                  {synthesisSources.length > 0 && (synthesisText || isSynthesizing) && (
-                    <div
-                      className="mt-3 rounded-xl p-3.5 text-xs"
-                      style={{
-                        border: "1px solid var(--border-subtle)",
-                        backgroundColor: "var(--bg-elevated)",
-                      }}
-                    >
-                      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-semibold text-xs tracking-wide uppercase" style={{ color: "var(--text-secondary)" }}>
-                          Grounding Sources ({synthesisSources.length} retrieved papers)
-                        </span>
-
-                        {isSynthesisComplete && synthesisValidation && (
-                          synthesisValidation.has_hallucinations ? (
-                            <span
-                              className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                              style={{
-                                backgroundColor: "rgba(239,68,68,0.15)",
-                                border: "1px solid rgba(239,68,68,0.3)",
-                                color: "#f87171",
-                              }}
-                            >
-                              ⚠ Unverified Citations: [SOURCE {synthesisValidation.invalid_citations.join(", ")}]
-                            </span>
-                          ) : (
-                            <span
-                              className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                              style={{
-                                backgroundColor: "rgba(16,185,129,0.15)",
-                                border: "1px solid rgba(16,185,129,0.3)",
-                                color: "#34d399",
-                              }}
-                            >
-                              ✓ Citations Verified ({synthesisValidation.cited_sources.length} sources cited)
-                            </span>
-                          )
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {synthesisSources.map((source) => {
-                          const isCited = synthesisValidation?.cited_sources.includes(source.source_index);
-                          return (
-                            <div
-                              key={source.arxiv_id}
-                              className="flex flex-col justify-between rounded-lg p-2.5 transition-colors"
-                              style={{
-                                border: isCited
-                                  ? "1px solid rgba(6,182,212,0.4)"
-                                  : "1px solid var(--border-subtle)",
-                                backgroundColor: isCited
-                                  ? "rgba(6,182,212,0.06)"
-                                  : "var(--bg-page)",
-                              }}
-                            >
-                              <div className="mb-1.5 flex items-start justify-between gap-2">
-                                <span
-                                  className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold"
-                                  style={{
-                                    backgroundColor: isCited
-                                      ? "var(--cyan-primary)"
-                                      : "var(--bg-elevated)",
-                                    color: isCited ? "#082f49" : "var(--text-secondary)",
-                                  }}
-                                >
-                                  SOURCE {source.source_index}
-                                </span>
-                                {isCited && (
-                                  <span
-                                    className="text-[10px] font-medium"
-                                    style={{ color: "var(--text-accent)" }}
-                                  >
-                                    Cited
-                                  </span>
-                                )}
-                              </div>
-                              <a
-                                href={source.entry_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="line-clamp-2 font-medium text-xs hover:underline"
-                                style={{ color: "var(--text-primary)" }}
-                              >
-                                {source.title}
-                              </a>
-                              <div
-                                className="mt-2 flex items-center justify-between text-[11px]"
-                                style={{ color: "var(--text-muted)" }}
-                              >
-                                <span>
-                                  {source.authors.length > 0
-                                    ? `${source.authors[0]}${source.authors.length > 1 ? " et al." : ""}`
-                                    : source.arxiv_id}
-                                </span>
-                                <div className="flex gap-2">
-                                  {source.pdf_url && (
-                                    <a
-                                      href={source.pdf_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="font-medium hover:underline"
-                                      style={{ color: "var(--text-accent)" }}
-                                    >
-                                      PDF ↗
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <p className="mt-2.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                        ⚠ Grounding Guarantee: Citations are cross-referenced against the retrieved candidate papers.
-                        Does not perform automated laboratory fact verification.
-                      </p>
-                    </div>
-                  )}
-
-                  {isSynthesisComplete && synthesisText && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        ⚠ Generated from abstracts only — verify claims in original papers.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={copySynthesis}
-                        className="ml-auto rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
-                        style={{
-                          border: "1px solid var(--border-default)",
-                          backgroundColor: "var(--bg-elevated)",
-                          color: "var(--text-secondary)",
-                        }}
-                        aria-label="Copy synthesis to clipboard"
-                      >
-                        {copyLabel}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {/* Synthesis Panel */}
+                <SynthesisPanel
+                  activeQuery={activeQuery}
+                  isSynthesizing={isSynthesizing}
+                  isSynthesisComplete={isSynthesisComplete}
+                  synthesisText={synthesisText}
+                  synthesisError={synthesisError}
+                  synthesisSources={synthesisSources}
+                  synthesisValidation={synthesisValidation}
+                  copyLabel={copyLabel}
+                  selectedCompareCount={selectedForCompare.length}
+                  isComparing={isComparing}
+                  resultsLength={results.length}
+                  onGenerateSynthesis={generateSynthesis}
+                  onCancelSynthesis={cancelSynthesis}
+                  onGenerateComparison={generateComparison}
+                  onCopySynthesis={copySynthesis}
+                />
 
                 {/* Structured Paper Comparison Section */}
                 {showComparisonView && (
-                  <div
-                    className="mb-6 rounded-2xl p-5 sm:p-6 transition-all"
-                    style={{
-                      border: "1px solid var(--border-default)",
-                      backgroundColor: "var(--bg-card)",
-                      boxShadow: "0 10px 30px -10px rgba(0,0,0,0.4)",
-                    }}
-                  >
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-4" style={{ borderColor: "var(--border-subtle)" }}>
-                      <div>
-                        <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                          Comparative Analysis Matrix
-                        </h3>
-                        <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                          Structured dimensional comparison extracted from author-reported abstracts
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {comparisonResult && (
-                          <span
-                            className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                            style={{
-                              backgroundColor: "rgba(6,182,212,0.15)",
-                              color: "var(--text-accent)",
-                              border: "1px solid rgba(6,182,212,0.3)",
-                            }}
-                          >
-                            {comparisonResult.papers.length} Papers Compared
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setShowComparisonView(false)}
-                          className="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
-                          style={{
-                            backgroundColor: "var(--bg-elevated)",
-                            color: "var(--text-secondary)",
-                            border: "1px solid var(--border-subtle)",
-                          }}
-                          aria-label="Close comparison matrix"
-                        >
-                          ✕ Close
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Loading state */}
-                    {isComparing && (
-                      <div className="py-8 text-center">
-                        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-                        <p className="mt-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                          Extracting comparative matrix from selected papers…
-                        </p>
-                        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                          Analyzing research objectives, methodologies, reported findings, and limitations using Llama 3.1 8B Instant.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Error state */}
-                    {comparisonError && !isComparing && (
-                      <div
-                        className="rounded-xl p-4 text-sm"
-                        style={{
-                          border: "1px solid var(--error-border)",
-                          backgroundColor: "var(--error-bg)",
-                          color: "#fda4af",
-                        }}
-                        role="alert"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p>{comparisonError}</p>
-                          <button
-                            type="button"
-                            onClick={() => generateComparison()}
-                            className="rounded-lg px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-80"
-                            style={{ backgroundColor: "#991b1b", color: "#fef2f2" }}
-                          >
-                            Retry Comparison
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Comparison Content */}
-                    {comparisonResult && !isComparing && (
-                      <div className="space-y-6">
-                        {/* Dimensional Comparison Table */}
-                        <div
-                          className="overflow-x-auto rounded-xl"
-                          style={{
-                            border: "1px solid var(--border-subtle)",
-                            backgroundColor: "var(--bg-page)",
-                          }}
-                        >
-                          <table className="w-full min-w-[700px] border-collapse text-left text-xs">
-                            <thead>
-                              <tr style={{ backgroundColor: "var(--bg-elevated)", borderBottom: "1px solid var(--border-subtle)" }}>
-                                <th className="w-36 p-3 font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                                  Dimension
-                                </th>
-                                {comparisonResult.papers.map((p, idx) => (
-                                  <th
-                                    key={p.arxiv_id}
-                                    className="p-3 font-semibold"
-                                    style={{
-                                      color: "var(--text-primary)",
-                                      borderLeft: idx > 0 ? "1px solid var(--border-subtle)" : undefined,
-                                    }}
-                                  >
-                                    <div className="flex flex-col gap-1.5">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <a
-                                          href={p.entry_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="font-mono text-[11px] font-bold hover:underline"
-                                          style={{ color: "var(--text-accent)" }}
-                                        >
-                                          arXiv:{p.arxiv_id}
-                                        </a>
-                                        {p.pdf_url && (
-                                          <a
-                                            href={p.pdf_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:underline"
-                                            style={{
-                                              backgroundColor: "rgba(6,182,212,0.12)",
-                                              color: "var(--text-accent)",
-                                            }}
-                                          >
-                                            PDF ↗
-                                          </a>
-                                        )}
-                                      </div>
-                                      <a
-                                        href={p.entry_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="line-clamp-2 font-semibold text-xs leading-snug hover:underline"
-                                        style={{ color: "var(--text-primary)" }}
-                                      >
-                                        {p.title}
-                                      </a>
-                                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                                        {p.published ? p.published.slice(0, 4) : ""} · {p.authors.length > 0 ? `${p.authors[0]} et al.` : ""}
-                                      </span>
-                                    </div>
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {/* Row 1: Objective */}
-                              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                                <td className="p-3 font-semibold align-top" style={{ color: "var(--text-secondary)", backgroundColor: "rgba(0,0,0,0.1)" }}>
-                                  Objective
-                                </td>
-                                {comparisonResult.papers.map((p, idx) => (
-                                  <td
-                                    key={p.arxiv_id}
-                                    className="p-3 leading-relaxed align-top"
-                                    style={{
-                                      color: "var(--text-primary)",
-                                      borderLeft: idx > 0 ? "1px solid var(--border-subtle)" : undefined,
-                                    }}
-                                  >
-                                    {p.research_question}
-                                  </td>
-                                ))}
-                              </tr>
-
-                              {/* Row 2: Method */}
-                              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                                <td className="p-3 font-semibold align-top" style={{ color: "var(--text-secondary)", backgroundColor: "rgba(0,0,0,0.1)" }}>
-                                  Proposed Method
-                                </td>
-                                {comparisonResult.papers.map((p, idx) => (
-                                  <td
-                                    key={p.arxiv_id}
-                                    className="p-3 leading-relaxed align-top"
-                                    style={{
-                                      color: "var(--text-primary)",
-                                      borderLeft: idx > 0 ? "1px solid var(--border-subtle)" : undefined,
-                                    }}
-                                  >
-                                    {p.method}
-                                  </td>
-                                ))}
-                              </tr>
-
-                              {/* Row 3: Datasets & Setup */}
-                              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                                <td className="p-3 font-semibold align-top" style={{ color: "var(--text-secondary)", backgroundColor: "rgba(0,0,0,0.1)" }}>
-                                  Datasets / Setup
-                                </td>
-                                {comparisonResult.papers.map((p, idx) => (
-                                  <td
-                                    key={p.arxiv_id}
-                                    className="p-3 leading-relaxed align-top"
-                                    style={{
-                                      color: p.datasets_or_setup.includes("Not explicitly") ? "var(--text-muted)" : "var(--text-primary)",
-                                      borderLeft: idx > 0 ? "1px solid var(--border-subtle)" : undefined,
-                                    }}
-                                  >
-                                    {p.datasets_or_setup}
-                                  </td>
-                                ))}
-                              </tr>
-
-                              {/* Row 4: Findings */}
-                              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                                <td className="p-3 font-semibold align-top" style={{ color: "var(--text-secondary)", backgroundColor: "rgba(0,0,0,0.1)" }}>
-                                  Reported Findings
-                                </td>
-                                {comparisonResult.papers.map((p, idx) => (
-                                  <td
-                                    key={p.arxiv_id}
-                                    className="p-3 leading-relaxed align-top"
-                                    style={{
-                                      color: "var(--text-primary)",
-                                      borderLeft: idx > 0 ? "1px solid var(--border-subtle)" : undefined,
-                                    }}
-                                  >
-                                    {p.reported_findings}
-                                  </td>
-                                ))}
-                              </tr>
-
-                              {/* Row 5: Limitations */}
-                              <tr>
-                                <td className="p-3 font-semibold align-top" style={{ color: "var(--text-secondary)", backgroundColor: "rgba(0,0,0,0.1)" }}>
-                                  Author Limitations
-                                </td>
-                                {comparisonResult.papers.map((p, idx) => (
-                                  <td
-                                    key={p.arxiv_id}
-                                    className="p-3 leading-relaxed align-top"
-                                    style={{
-                                      color: p.limitations.includes("Not explicitly") ? "var(--text-muted)" : "#f87171",
-                                      borderLeft: idx > 0 ? "1px solid var(--border-subtle)" : undefined,
-                                    }}
-                                  >
-                                    {p.limitations}
-                                  </td>
-                                ))}
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Cross-Paper Synthesized Insights */}
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                          {/* Similarities */}
-                          <div
-                            className="rounded-xl p-4"
-                            style={{
-                              backgroundColor: "var(--bg-page)",
-                              border: "1px solid rgba(6,182,212,0.25)",
-                            }}
-                          >
-                            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-accent)" }}>
-                              Similarities & Consensus
-                            </h4>
-                            <ul className="space-y-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                              {comparisonResult.similarities.length > 0 ? (
-                                comparisonResult.similarities.map((item, i) => (
-                                  <li key={i} className="flex items-start gap-1.5">
-                                    <span style={{ color: "var(--text-accent)" }}>•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))
-                              ) : (
-                                <li className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                  No notable commonalities identified in abstracts.
-                                </li>
-                              )}
-                            </ul>
-                          </div>
-
-                          {/* Differences */}
-                          <div
-                            className="rounded-xl p-4"
-                            style={{
-                              backgroundColor: "var(--bg-page)",
-                              border: "1px solid rgba(99,102,241,0.25)",
-                            }}
-                          >
-                            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#818cf8" }}>
-                              Methodological Differences
-                            </h4>
-                            <ul className="space-y-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                              {comparisonResult.differences.length > 0 ? (
-                                comparisonResult.differences.map((item, i) => (
-                                  <li key={i} className="flex items-start gap-1.5">
-                                    <span style={{ color: "#818cf8" }}>•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))
-                              ) : (
-                                <li className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                  No distinct divergence reported across abstracts.
-                                </li>
-                              )}
-                            </ul>
-                          </div>
-
-                          {/* Research Gaps */}
-                          <div
-                            className="rounded-xl p-4"
-                            style={{
-                              backgroundColor: "var(--bg-page)",
-                              border: "1px solid rgba(245,158,11,0.25)",
-                            }}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-1">
-                              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>
-                                Potential Research Gaps
-                              </h4>
-                              <span
-                                className="rounded px-1.5 py-0.5 text-[9px] font-medium"
-                                style={{
-                                  backgroundColor: "rgba(245,158,11,0.15)",
-                                  color: "#fbbf24",
-                                }}
-                              >
-                                Model Interpretation
-                              </span>
-                            </div>
-                            <ul className="space-y-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                              {comparisonResult.research_gaps.length > 0 ? (
-                                comparisonResult.research_gaps.map((item, i) => (
-                                  <li key={i} className="flex items-start gap-1.5">
-                                    <span style={{ color: "#fbbf24" }}>•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))
-                              ) : (
-                                <li className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                  No evident research gaps derived from reported limitations.
-                                </li>
-                              )}
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Disclaimer */}
-                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                          ⚠ {comparisonResult.disclaimer}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  <ComparisonMatrix
+                    isComparing={isComparing}
+                    comparisonError={comparisonError}
+                    comparisonResult={comparisonResult}
+                    onClose={() => setShowComparisonView(false)}
+                    onRetry={() => generateComparison()}
+                  />
                 )}
 
                 {/* Result count + graph prompt */}
@@ -2037,12 +1474,12 @@ export default function Home() {
                     >
                       {results.length}
                     </span>{" "}
-                    papers · ranked by cosine similarity to query
+                    papers · ranked by semantic similarity to search query
                   </p>
                   {selectedGraphCount > 0 && (
                     <Link
                       href={graphHref}
-                      className="rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80"
+                      className="rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
                       style={{
                         backgroundColor: "var(--cyan-subtle)",
                         color: "var(--text-accent)",
@@ -2054,333 +1491,24 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Paper cards */}
+                {/* Paper cards grid */}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {results.map((paper) => {
-                    const score = clampScore(paper.relevance_score);
-                    const summaryState = summaryById[paper.arxiv_id];
-                    const abstractExpanded = !!expandedAbstracts[paper.arxiv_id];
-                    const inGraph = normalizedSelectedForGraph.includes(paper.arxiv_id);
-                    const isSaved = savedIds.has(paper.arxiv_id);
-                    const inCompare = selectedForCompare.includes(paper.arxiv_id);
-
-                    return (
-                      <article
-                        key={paper.arxiv_id}
-                        className="flex flex-col rounded-[18px] p-5 transition-all"
-                        style={{
-                          border: inGraph
-                            ? "1px solid rgba(6,182,212,0.4)"
-                            : "1px solid var(--border-subtle)",
-                          backgroundColor: "var(--bg-surface)",
-                        }}
-                        aria-label={`Paper: ${paper.title}`}
-                      >
-                        {/* Title */}
-                        <h4
-                          className="mb-2 line-clamp-2 text-base font-semibold leading-snug"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {paper.title}
-                        </h4>
-
-                        {/* Authors */}
-                        <p
-                          className="mb-1 line-clamp-1 text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {paper.authors.slice(0, 4).join(", ") ||
-                            "Unknown authors"}
-                          {paper.authors.length > 4 &&
-                            ` +${paper.authors.length - 4} more`}
-                        </p>
-
-                        {/* Date + ID */}
-                        <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                          {formatDate(paper.published)} ·{" "}
-                          <a
-                            href={paper.entry_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="transition-colors hover:opacity-80"
-                            style={{ color: "var(--text-accent-dim)" }}
-                            aria-label={`arXiv abstract for ${paper.arxiv_id}`}
-                          >
-                            {paper.arxiv_id}
-                          </a>
-                        </p>
-
-                        {/* Categories */}
-                        <div className="mb-3 flex flex-wrap gap-1.5">
-                          {paper.categories.slice(0, 4).map((category) => (
-                            <span
-                              key={`${paper.arxiv_id}-${category}`}
-                              className="rounded-full px-2 py-0.5 text-xs"
-                              style={{
-                                border: "1px solid var(--border-subtle)",
-                                backgroundColor: "var(--bg-elevated)",
-                                color: "var(--text-secondary)",
-                              }}
-                            >
-                              {category}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Relevance bar */}
-                        {paper.relevance_score !== null && !paper.ranking_degraded && (
-                          <div className="mb-3">
-                            <div
-                              className="mb-1 flex items-center justify-between text-xs"
-                              style={{ color: "var(--text-muted)" }}
-                            >
-                              <span>Cosine similarity</span>
-                              <span
-                                className="font-mono font-semibold"
-                                style={{ color: "var(--text-accent)" }}
-                              >
-                                {(score * 100).toFixed(1)}%
-                              </span>
-                            </div>
-                            <div
-                              className="h-1.5 overflow-hidden rounded-full"
-                              style={{ backgroundColor: "var(--bg-elevated)" }}
-                              role="meter"
-                              aria-label={`Relevance: ${(score * 100).toFixed(1)}%`}
-                              aria-valuenow={Math.round(score * 100)}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                            >
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${(score * 100).toFixed(1)}%`,
-                                  background: `linear-gradient(90deg, var(--cyan-dim), var(--cyan-primary))`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Abstract */}
-                        <div className="mb-3 flex-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                          <p
-                            className={
-                              abstractExpanded
-                                ? "leading-6"
-                                : "line-clamp-3 leading-6"
-                            }
-                          >
-                            {paper.abstract}
-                          </p>
-                          {paper.abstract.length > 200 && (
-                            <button
-                              type="button"
-                              onClick={() => toggleAbstract(paper.arxiv_id)}
-                              className="mt-1 text-xs font-medium transition-colors hover:opacity-80"
-                              style={{ color: "var(--text-accent)" }}
-                              aria-expanded={abstractExpanded}
-                              aria-controls={`abstract-${paper.arxiv_id}`}
-                            >
-                              {abstractExpanded ? "Show less" : "Read more"}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => summarizePaper(paper.arxiv_id)}
-                            disabled={summaryState?.loading}
-                            className="rounded-lg px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                            style={{
-                              backgroundColor: "var(--cyan-primary)",
-                              color: "var(--cyan-text)",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!summaryState?.loading)
-                                e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
-                            }}
-                            aria-label={
-                              summaryState?.loading
-                                ? "Generating summary…"
-                                : `Summarize: ${paper.title}`
-                            }
-                          >
-                            {summaryState?.loading ? "Summarizing…" : "Summarize"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleGraphSelection(paper.arxiv_id)}
-                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                            style={
-                              inGraph
-                                ? {
-                                    backgroundColor: "rgba(16,185,129,0.12)",
-                                    border: "1px solid rgba(16,185,129,0.4)",
-                                    color: "#34d399",
-                                  }
-                                : {
-                                    border: "1px solid var(--border-subtle)",
-                                    backgroundColor: "var(--bg-elevated)",
-                                    color: "var(--text-secondary)",
-                                  }
-                            }
-                            aria-pressed={inGraph}
-                            aria-label={
-                              inGraph
-                                ? `Remove ${paper.title} from graph`
-                                : `Add ${paper.title} to graph`
-                            }
-                          >
-                            {inGraph ? "✓ In Graph" : "Add to Graph"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleComparePaper(paper.arxiv_id)}
-                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                            style={
-                              inCompare
-                                ? {
-                                    backgroundColor: "rgba(6,182,212,0.18)",
-                                    border: "1px solid rgba(6,182,212,0.45)",
-                                    color: "var(--text-accent)",
-                                  }
-                                : {
-                                    border: "1px solid var(--border-subtle)",
-                                    backgroundColor: "var(--bg-elevated)",
-                                    color: "var(--text-secondary)",
-                                  }
-                            }
-                            aria-pressed={inCompare}
-                            aria-label={
-                              inCompare
-                                ? `Remove ${paper.title} from comparison`
-                                : `Add ${paper.title} to comparison`
-                            }
-                          >
-                            {inCompare ? "✓ In Compare" : "+ Compare"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleSavedPaper(paper)}
-                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                            style={
-                              isSaved
-                                ? {
-                                    backgroundColor: "rgba(245,158,11,0.1)",
-                                    border: "1px solid rgba(245,158,11,0.35)",
-                                    color: "#fbbf24",
-                                  }
-                                : {
-                                    border: "1px solid var(--border-subtle)",
-                                    backgroundColor: "var(--bg-elevated)",
-                                    color: "var(--text-secondary)",
-                                  }
-                            }
-                            aria-pressed={isSaved}
-                            aria-label={
-                              isSaved
-                                ? `Remove ${paper.title} from reading list`
-                                : `Save ${paper.title} to reading list`
-                            }
-                          >
-                            {isSaved ? "★ Saved" : "Save"}
-                          </button>
-
-                          <a
-                            href={paper.pdf_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
-                            style={{
-                              border: "1px solid var(--border-subtle)",
-                              backgroundColor: "var(--bg-elevated)",
-                              color: "var(--text-secondary)",
-                            }}
-                            aria-label={`Open PDF for: ${paper.title}`}
-                          >
-                            PDF ↗
-                          </a>
-                        </div>
-
-                        {/* Summary panel */}
-                        {summaryState?.open && (
-                          <div
-                            className="mt-3 rounded-xl p-3"
-                            style={{
-                              border: "1px solid rgba(6,182,212,0.2)",
-                              backgroundColor: "var(--bg-page)",
-                            }}
-                            role="region"
-                            aria-label={`AI summary for ${paper.title}`}
-                          >
-                            {summaryState.loading && (
-                              <p
-                                className="text-xs"
-                                style={{ color: "var(--text-accent)" }}
-                                aria-live="polite"
-                              >
-                                Generating summary…
-                              </p>
-                            )}
-                            {!summaryState.loading && summaryState.error && (
-                              <div className="flex flex-col items-start gap-2">
-                                <p className="text-xs" style={{ color: "#fda4af" }} role="alert">
-                                  {summaryState.error}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => summarizePaper(paper.arxiv_id)}
-                                  disabled={summaryState.loading}
-                                  className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                                  style={{
-                                    backgroundColor: "rgba(239,68,68,0.15)",
-                                    border: "1px solid rgba(239,68,68,0.35)",
-                                    color: "#fca5a5",
-                                  }}
-                                  aria-label={`Retry summary for ${paper.title}`}
-                                >
-                                  Retry
-                                </button>
-                              </div>
-                            )}
-                            {!summaryState.loading &&
-                              !summaryState.error &&
-                              summaryState.summary && (
-                                <div>
-                                  <p
-                                    className="mb-1.5 text-xs font-bold uppercase tracking-widest"
-                                    style={{ color: "var(--text-accent-dim)" }}
-                                  >
-                                    AI Summary
-                                  </p>
-                                  <p
-                                    className="text-xs leading-6"
-                                    style={{ color: "var(--text-secondary)" }}
-                                  >
-                                    {summaryState.summary}
-                                  </p>
-                                  <p
-                                    className="mt-2 text-xs"
-                                    style={{ color: "var(--text-muted)" }}
-                                  >
-                                    ⚠ Based on abstract only — not the full paper.
-                                  </p>
-                                </div>
-                              )}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
+                  {results.map((paper) => (
+                    <PaperCard
+                      key={paper.arxiv_id}
+                      paper={paper}
+                      inGraph={normalizedSelectedForGraph.includes(paper.arxiv_id)}
+                      isSaved={savedIds.has(paper.arxiv_id)}
+                      inCompare={selectedForCompare.includes(paper.arxiv_id)}
+                      abstractExpanded={!!expandedAbstracts[paper.arxiv_id]}
+                      summaryState={summaryById[paper.arxiv_id]}
+                      onToggleAbstract={toggleAbstract}
+                      onToggleGraph={toggleGraphSelection}
+                      onToggleCompare={toggleComparePaper}
+                      onToggleSaved={toggleSavedPaper}
+                      onSummarize={summarizePaper}
+                    />
+                  ))}
                 </div>
               </div>
             )}

@@ -215,7 +215,8 @@ describe('Search and Synthesis Audit Workflows', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Grounding Sources \(1 retrieved papers\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/According to \[SOURCE 1\], quantum systems exhibit speedups\./i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Grounding reference: \[SOURCE 1\]/i })).toBeInTheDocument();
+      expect(screen.getByText(/quantum systems exhibit speedups\./i)).toBeInTheDocument();
       expect(screen.getByText(/Citations Verified/i)).toBeInTheDocument();
     });
   });

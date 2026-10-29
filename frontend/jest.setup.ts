@@ -22,7 +22,24 @@ Object.defineProperty(window, 'scrollTo', {
 
 // Mock pure ESM react-markdown
 jest.mock('react-markdown', () => {
-  return function MockReactMarkdown({ children }: { children: React.ReactNode }) {
+  return function MockReactMarkdown({
+    children,
+    components,
+  }: {
+    children: React.ReactNode;
+    components?: Record<string, React.ComponentType<any>>;
+  }) {
+    if (typeof children === 'string') {
+      const paragraphs = children.split(/\n\n+/);
+      const renderedParagraphs = paragraphs.map((para, i) => {
+        if (components?.p) {
+          const PComponent = components.p;
+          return React.createElement(PComponent, { key: i, children: para });
+        }
+        return React.createElement('p', { key: i }, para);
+      });
+      return React.createElement('div', { 'data-testid': 'markdown' }, renderedParagraphs);
+    }
     return React.createElement('div', { 'data-testid': 'markdown' }, children);
   };
 });

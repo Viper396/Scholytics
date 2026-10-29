@@ -369,12 +369,22 @@ describe('Home page - End to End Workflows', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Quantum computing harnesses \[SOURCE 1\] superposition/i),
+        screen.getByText((_, element) => {
+          return (
+            element?.tagName === 'P' &&
+            (element?.textContent?.includes('Quantum computing harnesses [SOURCE 1] superposition') ?? false)
+          );
+        }),
       ).toBeInTheDocument();
     });
 
     expect(
-      screen.getByText(/Error mitigation \[SOURCE 2\] remains essential/i),
+      screen.getByText((_, element) => {
+        return (
+          element?.tagName === 'P' &&
+          (element?.textContent?.includes('Error mitigation [SOURCE 2] remains essential') ?? false)
+        );
+      }),
     ).toBeInTheDocument();
 
     // Copy button appears upon completion

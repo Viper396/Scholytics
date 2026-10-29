@@ -16,21 +16,50 @@ export default function Nav({ selectedIds }: NavProps) {
       : "/graph";
 
   return (
-    <nav className="mb-6 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 shadow-lg shadow-slate-950/20">
+    <nav
+      className="mb-6 flex items-center justify-between rounded-2xl px-4 py-3 shadow-lg"
+      style={{
+        border: "1px solid var(--border-default)",
+        backgroundColor: "var(--bg-surface)",
+      }}
+      aria-label="Main navigation"
+    >
       <Link
         href="/"
-        className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold tracking-wide text-slate-100 transition hover:bg-slate-700"
+        className="inline-flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm font-semibold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+        style={{ color: "var(--text-primary)" }}
       >
-        <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
-        Scholytics
+        <span
+          className="flex h-6 w-6 items-center justify-center rounded-lg text-xs"
+          style={{
+            backgroundColor: "var(--cyan-subtle)",
+            color: "var(--text-accent)",
+            border: "1px solid rgba(6,182,212,0.3)",
+          }}
+          aria-hidden="true"
+        >
+          ⬡
+        </span>
+        <span className="font-bold">Scholytics</span>
       </Link>
 
       <Link
         href={graphHref}
-        className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+        className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+        style={{
+          backgroundColor: "var(--cyan-primary)",
+          color: "var(--cyan-text)",
+        }}
+        aria-label={`Graph ${cleanedIds.length}`}
       >
         <span>Graph</span>
-        <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-slate-900 px-2 py-0.5 text-xs font-bold text-cyan-200">
+        <span
+          className="inline-flex min-w-5 items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.25)",
+            color: "inherit",
+          }}
+        >
           {cleanedIds.length}
         </span>
       </Link>
