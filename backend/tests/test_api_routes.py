@@ -230,6 +230,35 @@ class TestSearchRanking:
         assert results[1]["arxiv_id"] == "2301.00002"
         assert abs(results[1]["relevance_score"] - 0.4) < 1e-4
 
+    @patch("services.arxiv_client.search_papers")
+    @patch("services.embedder.index_papers")
+    @patch("services.embedder.embed_query")
+    @patch("services.embedder.is_using_hash_fallback")
+    def test_category_filter_enforced_in_search_results(self, mock_fallback, mock_query_emb, mock_index, mock_search, client):
+        mock_fallback.return_value = False
+        p1 = _make_sample_paper("2301.00001", title="AI Paper", categories=["cs.AI"])
+        p2 = _make_sample_paper("2301.00002", title="CV Paper", categories=["cs.CV"])
+        mock_search.return_value = [p1, p2]
+        mock_query_emb.return_value = [0.1] * 384
+
+        fake_vector_store = MagicMock()
+        fake_vector_store.query.return_value = [
+            {"id": "2301.00001", "score": 0.9, "metadata": {"categories": "cs.AI"}},
+            {"id": "2301.00002", "score": 0.8, "metadata": {"categories": "cs.CV"}},
+        ]
+        client.app.state.vector_store = fake_vector_store
+
+        # Search with category filter cs.AI
+        response = client.post("/api/search", json={
+            "query": "test query",
+            "filters": {"categories": ["cs.AI"]},
+        })
+        assert response.status_code == 200
+        results = response.json()["results"]
+        assert len(results) == 1
+        assert results[0]["arxiv_id"] == "2301.00001"
+        assert "cs.AI" in results[0]["categories"]
+
 
 # ===========================================================================
 # 5. Paper Details & Summary Endpoints
@@ -268,13 +297,13 @@ class TestPaperDetailsAndSummaries:
 
     @patch("services.arxiv_client.fetch_paper_by_id")
     @patch("services.summarizer.summarize_paper")
-    def test_summarize_paper_failure_returns_500(self, mock_summarize, mock_fetch, client):
+    def test_summarize_paper_failure_returns_appropriate_status(self, mock_summarize, mock_fetch, client):
         mock_fetch.return_value = _make_sample_paper("2301.00001")
         mock_summarize.side_effect = RuntimeError("Groq API rate limit")
 
         response = client.post("/api/papers/2301.00001/summarize")
-        assert response.status_code == 500
-        assert response.json()["detail"] == "Failed to summarize paper"
+        assert response.status_code == 429
+        assert "rate limit" in response.json()["detail"].lower()
 
     @patch("services.arxiv_client.fetch_paper_by_id")
     @patch("services.summarizer.summarize_paper")
@@ -283,7 +312,7 @@ class TestPaperDetailsAndSummaries:
         mock_summarize.side_effect = RuntimeError("Error code: 401 - {'error': {'code': 'invalid_api_key'}}")
 
         response = client.post("/api/papers/2301.00001/summarize")
-        assert response.status_code == 500
+        assert response.status_code == 502
         assert "Invalid GROQ_API_KEY" in response.json()["detail"]
 
     @patch("services.arxiv_client.fetch_paper_by_id")
@@ -352,6 +381,28 @@ class TestSynthesisStreaming:
             "arxiv_ids": ["2301.99999"],
         })
         assert response.status_code == 404
+
+    @patch("services.summarizer.generate_search_summary")
+    def test_synthesize_preserves_exact_whitespace_and_newlines(self, mock_gen, client):
+        mock_gen.return_value = iter([
+            "First sentence.",
+            "\n\n",
+            " Second paragraph",
+            " with line1\nline2 continuation.",
+        ])
+        sample_paper = _make_sample_paper("2301.00001")
+
+        response = client.post("/api/search/synthesize", json={
+            "query": "transformer attention",
+            "arxiv_ids": ["2301.00001"],
+            "papers": [sample_paper],
+        })
+
+        assert response.status_code == 200
+        body = response.text
+        assert "data:  Second paragraph" in body
+        assert "data: \ndata: \ndata: \n\n" in body
+        assert "data:  with line1\ndata: line2 continuation.\n\n" in body
 
 
 # ===========================================================================

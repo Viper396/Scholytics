@@ -127,9 +127,10 @@ function formatDate(value: string): string {
 
 function GraphPageContent() {
   const searchParams = useSearchParams();
+  const rawIds = searchParams?.get("ids") ?? null;
   const requestedIds = useMemo(
-    () => parseIdsParam(searchParams.get("ids")),
-    [searchParams],
+    () => parseIdsParam(rawIds),
+    [rawIds],
   );
   const idsKey = useMemo(() => requestedIds.join(","), [requestedIds]);
 
@@ -495,15 +496,52 @@ function GraphPageContent() {
     if (!selectedNodeId) return;
     const nodeId = selectedNodeId;
 
+    // Guard against duplicate clicks
+    if (summaryLoadingById[nodeId]) return;
+
     setSummaryLoadingById((current) => ({ ...current, [nodeId]: true }));
     setSummaryErrorById((current) => ({ ...current, [nodeId]: "" }));
+
+    // Reuse already loaded title and abstract if available to avoid unnecessary arXiv roundtrips
+    const title = selectedDetails?.title || selectedNode?.title || "";
+    const rawAbstract = selectedDetails?.abstract || "";
+    const abstract =
+      rawAbstract && rawAbstract !== "Abstract unavailable." ? rawAbstract : "";
+
+    const hasMetadata = Boolean(title && abstract);
+    const requestHeaders: Record<string, string> = hasMetadata
+      ? { "Content-Type": "application/json" }
+      : {};
+    const requestBody = hasMetadata
+      ? JSON.stringify({ title, abstract })
+      : undefined;
 
     try {
       const response = await fetch(
         `/api/papers/${encodeURIComponent(nodeId)}/summarize`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: requestHeaders,
+          body: requestBody,
+        },
       );
-      if (!response.ok) throw new Error("Summary unavailable right now.");
+
+      if (!response.ok) {
+        let msg = "Summary unavailable right now.";
+        try {
+          const errData = await response.json();
+          if (errData?.detail) {
+            msg =
+              typeof errData.detail === "string"
+                ? errData.detail
+                : JSON.stringify(errData.detail);
+          }
+        } catch {
+          // fallback to generic message
+        }
+        throw new Error(msg);
+      }
+
       const data = (await response.json()) as { arxiv_id: string; summary: string };
       setSummaryById((current) => ({ ...current, [nodeId]: data.summary }));
     } catch (error) {
@@ -998,10 +1036,10 @@ function GraphPageContent() {
                     )}
                   </div>
 
-                  {/* Summary error */}
+                  {/* Summary error with Retry */}
                   {summaryError && (
                     <div
-                      className="rounded-xl p-3 text-xs"
+                      className="flex flex-col items-start gap-2 rounded-xl p-3 text-xs"
                       style={{
                         border: "1px solid var(--error-border)",
                         backgroundColor: "var(--error-bg)",
@@ -1009,7 +1047,21 @@ function GraphPageContent() {
                       }}
                       role="alert"
                     >
-                      {summaryError}
+                      <p>{summaryError}</p>
+                      <button
+                        type="button"
+                        onClick={summarizeSelectedNode}
+                        disabled={summaryLoading}
+                        className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{
+                          backgroundColor: "rgba(239,68,68,0.15)",
+                          border: "1px solid rgba(239,68,68,0.35)",
+                          color: "#fca5a5",
+                        }}
+                        aria-label={`Retry summary for ${selectedNode?.title || "selected paper"}`}
+                      >
+                        Retry
+                      </button>
                     </div>
                   )}
 

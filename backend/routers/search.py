@@ -189,7 +189,7 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 		except RuntimeError as exc:
 			logger.warning("Query embedding unavailable, returning unranked results: %s", exc)
 			metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
-			return _unranked_response(query, papers)
+			return _unranked_response(query, papers, filters_dict)
 
 		# ------------------------------------------------------------------
 		# Step 3: Incremental, Bounded Ingestion
@@ -207,11 +207,11 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 				# Embedding failed for all candidates and none were already indexed
 				logger.warning("All embeddings failed during ingestion; returning unranked results")
 				metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
-				return _unranked_response(query, papers)
+				return _unranked_response(query, papers, filters_dict)
 		except RuntimeError as exc:
 			logger.warning("Embedding model unavailable during ingestion: %s", exc)
 			metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
-			return _unranked_response(query, papers)
+			return _unranked_response(query, papers, filters_dict)
 
 		fetched_ids = [str(paper.get("arxiv_id")) for paper in papers if paper.get("arxiv_id")]
 		canonical_ids = list(dict.fromkeys(canonicalize_arxiv_id(aid) for aid in fetched_ids if aid))
@@ -327,12 +327,19 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 
 			source_paper = papers_by_id.get(str(paper_id)) or papers_by_id.get(canonicalize_arxiv_id(str(paper_id)), {})
 			published_str = str(source_paper.get("published") or metadata.get("published") or "")
-			categories = source_paper.get("categories") or _split_csv(metadata.get("categories"))
+			categories = _split_csv(source_paper.get("categories")) or _split_csv(metadata.get("categories"))
 
 			# Application-level date filter verification
 			if filters_dict and filters_dict.get("date_from"):
-				filter_date_str = filters_dict["date_from"]
+				filter_date_str = str(filters_dict["date_from"])[:10]
 				if published_str and published_str < filter_date_str:
+					continue
+
+			# Application-level category filter verification
+			if filters_dict and filters_dict.get("categories"):
+				filter_cats = set(filters_dict["categories"])
+				paper_cats = set(categories)
+				if filter_cats and not filter_cats.intersection(paper_cats):
 					continue
 
 			result = {
@@ -377,26 +384,41 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 	return await async_single_flight.execute(search_cache_key, _execute_search)
 
 
-def _unranked_response(query: str, papers: list[dict[str, Any]]) -> dict[str, Any]:
+def _unranked_response(
+	query: str,
+	papers: list[dict[str, Any]],
+	filters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
 	"""Return an unranked result set when embedding is unavailable."""
-	return {
-		"query": query,
-		"results": [
+	results = []
+	for p in papers:
+		pub = str(p.get("published", ""))[:10]
+		if filters and filters.get("date_from") and pub:
+			if pub < str(filters["date_from"])[:10]:
+				continue
+		cats = _split_csv(p.get("categories"))
+		if filters and filters.get("categories"):
+			filter_cats = set(filters["categories"])
+			if filter_cats and not filter_cats.intersection(set(cats)):
+				continue
+		results.append(
 			{
 				"arxiv_id": str(p.get("arxiv_id", "")),
 				"title": str(p.get("title", "")),
 				"authors": p.get("authors", []),
 				"abstract": str(p.get("abstract", "")),
 				"published": str(p.get("published", "")),
-				"categories": p.get("categories", []),
+				"categories": cats,
 				"pdf_url": str(p.get("pdf_url", "")),
 				"entry_url": str(p.get("entry_url", "")),
 				"relevance_score": None,
 				"ranking_degraded": True,
 			}
-			for p in papers
-		],
-		"total": len(papers),
+		)
+	return {
+		"query": query,
+		"results": results,
+		"total": len(results),
 		"ranking_note": "Results are unranked because the semantic embedding model is unavailable.",
 	}
 
@@ -454,11 +476,11 @@ async def synthesize_search(payload: SearchSynthesizeRequest) -> StreamingRespon
 
 			for token in summarizer.generate_search_summary(query, papers):
 				accumulated_tokens.append(token)
-				# Each token may contain newlines; emit each non-empty line separately.
-				# SSE event format: each "event" is terminated by a blank line (\n\n).
-				lines = token.splitlines() if token else []
-				if not lines:
-					lines = [""]
+				# SSE transport: preserve exact text across arbitrary chunk boundaries,
+				# newlines, and spaces. Split on literal \n without dropping empty lines or trailing newlines.
+				if not token:
+					continue
+				lines = token.split("\n")
 				data_lines = "\n".join(f"data: {line}" for line in lines)
 				yield f"{data_lines}\n\n"
 				await asyncio.sleep(0)

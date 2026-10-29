@@ -95,9 +95,16 @@ async def summarize_paper(
 	abstract = payload.abstract.strip() if payload and payload.abstract else None
 
 	if not title or not abstract:
-		paper = await asyncio.to_thread(arxiv_client.fetch_paper_by_id, arxiv_id)
+		try:
+			paper = await asyncio.to_thread(arxiv_client.fetch_paper_by_id, arxiv_id)
+		except Exception as exc:  # noqa: BLE001
+			logger.error("arXiv metadata fetch failed for %s: %s", arxiv_id, exc)
+			raise HTTPException(
+				status_code=503,
+				detail="arXiv metadata service is temporarily unavailable. Please try again later.",
+			) from exc
 		if paper is None:
-			raise HTTPException(status_code=404, detail="Paper not found")
+			raise HTTPException(status_code=404, detail="Paper not found on arXiv.")
 		title = str(paper.get("title", ""))
 		abstract = str(paper.get("abstract", ""))
 	else:
@@ -115,15 +122,65 @@ async def summarize_paper(
 	except Exception as exc:  # noqa: BLE001
 		metrics.record_groq_failure("summary")
 		logger.error("Summary generation failed for %s: %s", arxiv_id, exc)
-		exc_str = str(exc)
+		exc_str = str(exc).lower()
 		exc_name = type(exc).__name__.lower()
-		if "invalid_api_key" in exc_str.lower() or "authentication" in exc_name or "401" in exc_str:
-			detail = "Groq authentication failed: Invalid GROQ_API_KEY. Please verify your API key at console.groq.com and in Render."
-		elif "ratelimit" in exc_name or "429" in exc_str:
-			detail = "Groq rate limit reached. Please wait a moment before requesting another summary."
-		else:
-			detail = "Failed to summarize paper"
-		raise HTTPException(status_code=500, detail=detail) from exc
+
+		# 1. Missing Groq API key configuration
+		if "not configured" in exc_str or "groq_api_key is not configured" in exc_str:
+			raise HTTPException(
+				status_code=503,
+				detail="LLM summarization is currently unconfigured. Set GROQ_API_KEY in the environment.",
+			) from exc
+
+		# 2. Authentication failure (invalid API key)
+		if "invalid_api_key" in exc_str or "authentication" in exc_name or "401" in exc_str:
+			raise HTTPException(
+				status_code=502,
+				detail="Groq authentication failed: Invalid GROQ_API_KEY. Please verify your API key in environment settings.",
+			) from exc
+
+		# 3. Rate limits
+		if "ratelimit" in exc_name or "429" in exc_str or "rate limit" in exc_str:
+			raise HTTPException(
+				status_code=429,
+				detail="Groq rate limit reached. Please wait a moment before requesting another summary.",
+			) from exc
+
+		# 4. Unavailable or decommissioned model
+		if (
+			"model_not_found" in exc_str
+			or "notfounderror" in exc_name
+			or "does not exist" in exc_str
+			or "decommissioned" in exc_str
+			or ("404" in exc_str and "model" in exc_str)
+		):
+			raise HTTPException(
+				status_code=502,
+				detail="Configured summarization model is unavailable or decommissioned on Groq. Please verify GROQ_MODEL in environment settings.",
+			) from exc
+
+		# 5. Upstream outage, network failure, or timeout
+		if (
+			"connection" in exc_str
+			or "connection" in exc_name
+			or "timeout" in exc_str
+			or "timeout" in exc_name
+			or "connecterror" in exc_str
+			or "timed out" in exc_str
+			or "503" in exc_str
+			or "500" in exc_str
+			or "internalservererror" in exc_name
+		):
+			raise HTTPException(
+				status_code=503,
+				detail="Groq summarization service is temporarily unavailable. Please try again later.",
+			) from exc
+
+		# 6. Fallback safe error
+		raise HTTPException(
+			status_code=502,
+			detail="Upstream summarization service failed. Please try again later.",
+		) from exc
 
 	return {"arxiv_id": str(paper.get("arxiv_id", arxiv_id)), "summary": summary}
 

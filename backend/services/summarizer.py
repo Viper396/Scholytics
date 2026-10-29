@@ -97,15 +97,17 @@ def summarize_multiple(papers: list[dict]) -> list[dict]:
 
 	for paper in papers:
 		paper_with_summary = dict(paper)
+		aid = str(paper.get("arxiv_id", "")).strip()
 		try:
 			paper_with_summary["summary"] = summarize_paper(
 				title=str(paper.get("title", "")),
 				abstract=str(paper.get("abstract", "")),
+				arxiv_id=aid,
 			)
 		except Exception as exc:  # noqa: BLE001
 			logger.error(
 				"Summary failed for paper %s: %s",
-				paper.get("arxiv_id", "unknown"),
+				aid or "unknown",
 				exc,
 			)
 			paper_with_summary["summary"] = "Summary unavailable."

@@ -318,7 +318,7 @@ function ReadingListPanel({
 export default function Home() {
   const [queryInput, setQueryInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
-  const [yearFrom, setYearFrom] = useState(2020);
+  const [yearFrom, setYearFrom] = useState(MIN_YEAR);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [maxResults, setMaxResults] = useState<number>(10);
 
@@ -345,6 +345,7 @@ export default function Home() {
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [showComparisonView, setShowComparisonView] = useState(false);
+  const comparisonAbortRef = useRef<AbortController | null>(null);
 
   const [readingList, setReadingList] = useState<ReadingListEntry[]>([]);
   const [showReadingList, setShowReadingList] = useState(false);
@@ -424,20 +425,30 @@ export default function Home() {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      // Cancel or invalidate synthesis when a new search starts
+      synthesisAbortRef.current?.abort();
+      setIsSynthesizing(false);
+      setSynthesisText("");
+      setSynthesisSources([]);
+      setSynthesisValidation(null);
+      setSynthesisError(null);
+      setIsSynthesisComplete(false);
+      setCopyLabel("Copy");
+
+      // Cancel any in-flight comparison when search changes
+      comparisonAbortRef.current?.abort();
+      setIsComparing(false);
+
       setIsLoading(true);
       setErrorMessage(null);
       setHasSearched(true);
       setActiveQuery(query);
       setRankingNote(null);
-      setSynthesisText("");
-      setSynthesisError(null);
-      setIsSynthesizing(false);
-      setIsSynthesisComplete(false);
-      setCopyLabel("Copy");
 
       const cacheKey = `${query.toLowerCase()}::${maxResults}::${yearFrom}::${[...selectedCategories].sort().join(",")}`;
       const cached = searchCacheRef.current.get(cacheKey);
       if (cached) {
+        if (abortRef.current !== controller) return;
         setResults(cached.results ?? []);
         setRankingNote(cached.ranking_note ?? null);
         setExpandedAbstracts({});
@@ -447,19 +458,23 @@ export default function Home() {
       }
 
       try {
+        const filters: { date_from?: string; categories?: string[] } = {};
+        if (yearFrom > MIN_YEAR) {
+          filters.date_from = `${yearFrom}-01-01`;
+        }
+        if (selectedCategories.length > 0) {
+          filters.categories = selectedCategories;
+        }
+
         const payload: {
           query: string;
           max_results: number;
-          filters: { date_from: string; categories?: string[] };
+          filters: { date_from?: string; categories?: string[] };
         } = {
           query,
           max_results: maxResults,
-          filters: { date_from: `${yearFrom}-01-01` },
+          filters,
         };
-
-        if (selectedCategories.length > 0) {
-          payload.filters.categories = selectedCategories;
-        }
 
         const response = await fetch("/api/search", {
           method: "POST",
@@ -468,7 +483,7 @@ export default function Home() {
           signal: controller.signal,
         });
 
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || abortRef.current !== controller) return;
 
         if (!response.ok) {
           const status = response.status;
@@ -481,7 +496,7 @@ export default function Home() {
         }
 
         const data = (await response.json()) as SearchResponse;
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || abortRef.current !== controller) return;
 
         if (searchCacheRef.current.size >= 20) {
           const firstKey = searchCacheRef.current.keys().next().value;
@@ -494,7 +509,7 @@ export default function Home() {
         setExpandedAbstracts({});
         setSummaryById({});
       } catch (error) {
-        if ((error as Error)?.name === "AbortError") return;
+        if (controller.signal.aborted || abortRef.current !== controller || (error as Error)?.name === "AbortError") return;
         setResults([]);
         setErrorMessage(
           error instanceof Error
@@ -502,7 +517,9 @@ export default function Home() {
             : "Something went wrong while searching. Please retry.",
         );
       } finally {
-        setIsLoading(false);
+        if (abortRef.current === controller) {
+          setIsLoading(false);
+        }
       }
     },
     [queryInput, maxResults, yearFrom, selectedCategories],
@@ -533,6 +550,8 @@ export default function Home() {
     setIsSynthesisComplete(false);
     setCopyLabel("Copy");
 
+    let onAbort: (() => void) | null = null;
+
     try {
       const response = await fetch("/api/search/synthesize", {
         method: "POST",
@@ -557,12 +576,18 @@ export default function Home() {
       }
 
       const reader = response.body.getReader();
+      onAbort = () => {
+        try {
+          reader.cancel();
+        } catch {}
+      };
+      controller.signal.addEventListener("abort", onAbort);
       const decoder = new TextDecoder();
       let buffer = "";
 
       while (true) {
         const { value, done } = await reader.read();
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || synthesisAbortRef.current !== controller) {
           reader.cancel();
           return;
         }
@@ -583,8 +608,8 @@ export default function Home() {
             if (line.startsWith("event:")) {
               eventType = line.slice(6).trim();
             } else if (line.startsWith("data:")) {
-              const content = line.slice(5);
-              dataLines.push(content.startsWith(" ") ? content.slice(1) : content);
+              const content = line.startsWith("data: ") ? line.slice(6) : line.slice(5);
+              dataLines.push(content);
             }
           }
 
@@ -613,8 +638,10 @@ export default function Home() {
           }
 
           if (eventType === "done") {
-            setIsSynthesizing(false);
-            setIsSynthesisComplete(true);
+            if (synthesisAbortRef.current === controller) {
+              setIsSynthesizing(false);
+              setIsSynthesisComplete(true);
+            }
             return;
           }
 
@@ -622,7 +649,7 @@ export default function Home() {
             throw new Error(data || "Synthesis unavailable.");
           }
 
-          if (data) {
+          if (dataLines.length > 0) {
             setSynthesisText((current) => current + data);
           }
 
@@ -630,14 +657,53 @@ export default function Home() {
         }
       }
 
-      setIsSynthesisComplete(true);
+      if (buffer.length > 0 && !controller.signal.aborted && synthesisAbortRef.current === controller) {
+        let eventType = "message";
+        const dataLines: string[] = [];
+        for (const rawLine of buffer.split("\n")) {
+          const line = rawLine.replace(/\r$/, "");
+          if (line.startsWith("event:")) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            const content = line.startsWith("data: ") ? line.slice(6) : line.slice(5);
+            dataLines.push(content);
+          }
+        }
+        const data = dataLines.join("\n");
+        if (eventType === "sources") {
+          try {
+            setSynthesisSources(JSON.parse(data) as SynthesisSource[]);
+          } catch {}
+        } else if (eventType === "validation") {
+          try {
+            setSynthesisValidation(JSON.parse(data) as SynthesisValidation);
+          } catch {}
+        } else if (eventType === "done") {
+          setIsSynthesizing(false);
+          setIsSynthesisComplete(true);
+          return;
+        } else if (eventType === "error") {
+          throw new Error(data || "Synthesis unavailable.");
+        } else if (dataLines.length > 0) {
+          setSynthesisText((current) => current + data);
+        }
+      }
+
+      if (synthesisAbortRef.current === controller) {
+        setIsSynthesisComplete(true);
+      }
     } catch (error) {
-      if ((error as Error)?.name === "AbortError") return;
+      if (controller.signal.aborted || synthesisAbortRef.current !== controller || (error as Error)?.name === "AbortError") return;
       setSynthesisError(
         error instanceof Error ? error.message : "Synthesis unavailable.",
       );
     } finally {
-      setIsSynthesizing(false);
+      if (onAbort) {
+        controller.signal.removeEventListener("abort", onAbort);
+      }
+      if (!controller.signal.aborted && synthesisAbortRef.current === controller) {
+        setIsSynthesizing(false);
+      }
     }
   }
 
@@ -699,6 +765,11 @@ export default function Home() {
 
     const selectedPapers = results.filter((p) => boundedIds.includes(p.arxiv_id));
 
+    // Cancel any previous in-flight comparison.
+    comparisonAbortRef.current?.abort();
+    const controller = new AbortController();
+    comparisonAbortRef.current = controller;
+
     setIsComparing(true);
     setComparisonError(null);
     setShowComparisonView(true);
@@ -712,7 +783,10 @@ export default function Home() {
           papers: selectedPapers,
           query: activeQuery,
         }),
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted || comparisonAbortRef.current !== controller) return;
 
       if (!response.ok) {
         let msg = "Could not generate comparison right now.";
@@ -726,13 +800,17 @@ export default function Home() {
       }
 
       const data = (await response.json()) as ComparisonResult;
+      if (controller.signal.aborted || comparisonAbortRef.current !== controller) return;
       setComparisonResult(data);
     } catch (error) {
+      if (controller.signal.aborted || comparisonAbortRef.current !== controller || (error as Error)?.name === "AbortError") return;
       setComparisonError(
         error instanceof Error ? error.message : "Failed to generate comparison. Please retry.",
       );
     } finally {
-      setIsComparing(false);
+      if (comparisonAbortRef.current === controller) {
+        setIsComparing(false);
+      }
     }
   }
 
@@ -803,6 +881,7 @@ export default function Home() {
 
   async function summarizePaper(arxivId: string) {
     const existing = summaryById[arxivId];
+    if (existing?.loading) return;
     if (existing?.summary && !existing.error) {
       setSummaryById((current) => ({
         ...current,
@@ -1118,7 +1197,7 @@ export default function Home() {
                   className="mb-2 text-xs font-semibold uppercase tracking-widest"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Year Range
+                  Earliest Publication Year
                 </p>
                 <div
                   className="mb-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm"
@@ -1128,11 +1207,13 @@ export default function Home() {
                     color: "var(--text-secondary)",
                   }}
                 >
-                  <span>From: <strong style={{ color: "var(--text-primary)" }}>{yearFrom}</strong></span>
-                  <span>To: <strong style={{ color: "var(--text-primary)" }}>{CURRENT_YEAR}</strong></span>
+                  <span>From: <strong style={{ color: "var(--text-primary)" }}>{yearFrom} or later</strong></span>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {yearFrom > MIN_YEAR ? "Lower bound" : `All (${MIN_YEAR}+)`}
+                  </span>
                 </div>
                 <label htmlFor="year-range" className="sr-only">
-                  Show papers from year {yearFrom} to {CURRENT_YEAR}
+                  Earliest publication year: {yearFrom} or later
                 </label>
                 <input
                   id="year-range"
@@ -1145,6 +1226,7 @@ export default function Home() {
                   aria-valuemin={MIN_YEAR}
                   aria-valuemax={CURRENT_YEAR}
                   aria-valuenow={yearFrom}
+                  aria-label={`Earliest publication year: ${yearFrom} or later`}
                 />
               </div>
 
@@ -2250,9 +2332,25 @@ export default function Home() {
                               </p>
                             )}
                             {!summaryState.loading && summaryState.error && (
-                              <p className="text-xs" style={{ color: "#fda4af" }} role="alert">
-                                {summaryState.error}
-                              </p>
+                              <div className="flex flex-col items-start gap-2">
+                                <p className="text-xs" style={{ color: "#fda4af" }} role="alert">
+                                  {summaryState.error}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => summarizePaper(paper.arxiv_id)}
+                                  disabled={summaryState.loading}
+                                  className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                  style={{
+                                    backgroundColor: "rgba(239,68,68,0.15)",
+                                    border: "1px solid rgba(239,68,68,0.35)",
+                                    color: "#fca5a5",
+                                  }}
+                                  aria-label={`Retry summary for ${paper.title}`}
+                                >
+                                  Retry
+                                </button>
+                              </div>
                             )}
                             {!summaryState.loading &&
                               !summaryState.error &&
