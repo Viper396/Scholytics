@@ -10,14 +10,9 @@ from main import app
 from services import arxiv_client, cache, embedder
 from services.cache import (
     BoundedLRU,
-    build_compare_cache_key,
-    build_paper_cache_key,
-    build_query_embedding_cache_key,
     build_search_cache_key,
     build_summary_cache_key,
     clear_all_caches,
-    get_all_cache_stats,
-    is_cache_enabled,
 )
 
 

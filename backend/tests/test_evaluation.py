@@ -4,11 +4,9 @@ Tests for the evaluation dataset, IR metrics, and benchmark pipeline.
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
 
-import pytest
 
 # Ensure repository root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))

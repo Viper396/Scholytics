@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from db.chroma_adapter import ChromaAdapter
-from db.vector_store import VectorStore, canonicalize_arxiv_id
+from db.vector_store import canonicalize_arxiv_id
 from main import _build_vector_store
 
 
@@ -307,3 +307,68 @@ class TestVectorStoreFactory:
             with pytest.raises(RuntimeError) as exc_info:
                 _build_vector_store()
             assert "Unknown VECTOR_STORE_BACKEND='milvus'" in str(exc_info.value)
+
+    def test_production_chroma_guard_raises(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "production", "VECTOR_STORE_BACKEND": "chroma"}, clear=False):
+            with pytest.raises(RuntimeError) as exc_info:
+                _build_vector_store()
+            assert "Production environment detected" in str(exc_info.value)
+            assert "VECTOR_STORE_BACKEND is set to ephemeral 'chroma'" in str(exc_info.value)
+
+    def test_production_chroma_bypass_allowed(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ENVIRONMENT": "production",
+                "VECTOR_STORE_BACKEND": "chroma",
+                "ALLOW_EPHEMERAL_CHROMA_IN_PRODUCTION": "true",
+            },
+            clear=False,
+        ):
+            store = _build_vector_store()
+            assert isinstance(store, ChromaAdapter)
+
+    def test_cors_comma_separated_origins(self):
+        from main import get_allowed_origins
+
+        with patch.dict(
+            os.environ,
+            {"FRONTEND_ORIGIN": "https://scholytics.vercel.app, http://localhost:3000/"},
+        ):
+            origins = get_allowed_origins()
+            assert "https://scholytics.vercel.app" in origins
+            assert "http://localhost:3000" in origins
+
+    def test_pinecone_invalid_dimension_raises(self):
+        with patch.dict(os.environ, {"PINECONE_API_KEY": "dummy_key", "PINECONE_INDEX_NAME": "scholytics-papers"}):
+            with patch("pinecone.Pinecone") as mock_pinecone_class:
+                mock_client = MagicMock()
+                mock_index_model = MagicMock()
+                mock_index_model.name = "scholytics-papers"
+                mock_index_model.dimension = 1536  # Invalid dimension
+                mock_index_model.metric = "cosine"
+                mock_client.list_indexes.return_value = [mock_index_model]
+                mock_pinecone_class.return_value = mock_client
+
+                from db.pinecone_adapter import PineconeAdapter
+
+                with pytest.raises(RuntimeError) as exc_info:
+                    PineconeAdapter()
+                assert "has dimension=1536" in str(exc_info.value)
+
+    def test_pinecone_invalid_metric_raises(self):
+        with patch.dict(os.environ, {"PINECONE_API_KEY": "dummy_key", "PINECONE_INDEX_NAME": "scholytics-papers"}):
+            with patch("pinecone.Pinecone") as mock_pinecone_class:
+                mock_client = MagicMock()
+                mock_index_model = MagicMock()
+                mock_index_model.name = "scholytics-papers"
+                mock_index_model.dimension = 384
+                mock_index_model.metric = "euclidean"  # Invalid metric
+                mock_client.list_indexes.return_value = [mock_index_model]
+                mock_pinecone_class.return_value = mock_client
+
+                from db.pinecone_adapter import PineconeAdapter
+
+                with pytest.raises(RuntimeError) as exc_info:
+                    PineconeAdapter()
+                assert "has metric='euclidean'" in str(exc_info.value)

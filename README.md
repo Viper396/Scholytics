@@ -235,37 +235,25 @@ npm run build
 
 ## Deployment & Production Readiness (Render + Vercel)
 
-### Backend (Render Free Tier)
-1. In the Render Dashboard, create a new **Web Service** connected to your repository.
-2. Settings:
-   - **Runtime**: Python 3
-   - **Root Directory**: `backend` (or leave empty if using root `backend/requirements.txt`)
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-3. Environment Variables:
-   - `PYTHON_VERSION`: `3.11.10` *(critical: Render defaults to 3.13; FastEmbed requires Python 3.11 or 3.12)*
-   - `GROQ_API_KEY`: your Groq API key
-   - `VECTOR_STORE_BACKEND`: `pinecone`
-   - `PINECONE_API_KEY`: your Pinecone API key
-   - `PINECONE_INDEX_NAME`: `scholytics-papers`
-   - `PINECONE_HOST`: your Pinecone host URL (e.g. `https://scholytics-papers-xxxx.svc.aped-4627-b74a.pinecone.io`)
-   - `LOCAL_EMBEDDING_MODEL`: `BAAI/bge-small-en-v1.5`
-   - `USE_HASH_EMBEDDING_FALLBACK`: `false`
-   - `FRONTEND_ORIGIN`: `https://scholytics.vercel.app` *(without trailing slash)*
+For the complete step-by-step production deployment guide, architecture diagrams, and smoke-test procedures, see [DEPLOYMENT.md](file:///c:/Users/Arnav/Desktop/projects/rag-project/DEPLOYMENT.md).
 
-### Pinecone Free Tier Index Setup
-Create a free serverless index in the [Pinecone Console](https://app.pinecone.io/):
-- **Index Name**: `scholytics-papers`
-- **Dimensions**: `384`
-- **Metric**: `cosine`
-- **Cloud Provider**: `AWS`
-- **Region**: `us-east-1` (or your preferred free-tier region)
+### Quick Deployment Summary
 
-### Frontend (Vercel)
-1. Import repository into Vercel.
-2. Root Directory: `frontend`
-3. Environment Variable: `NEXT_PUBLIC_API_URL=https://your-scholytics-backend.onrender.com`
+- **Render Blueprint**: Deploy via one-click `render.yaml` Infrastructure-as-Code Blueprint or manual web service.
+- **Python Version**: Pinned to `3.11.10` via `.python-version` and `PYTHON_VERSION=3.11.10` for FastEmbed ONNX CPU wheel compatibility.
+- **Persistent Vector Store**: `VECTOR_STORE_BACKEND=pinecone` with `PINECONE_API_KEY` and `PINECONE_INDEX_NAME=scholytics-papers` (dimension `384`, metric `cosine`).
+- **Zero Secret Leaks**: All credentials remain strictly on Render backend. Zero secrets in `NEXT_PUBLIC_*` or frontend code.
+- **CORS Configuration**: `FRONTEND_ORIGIN` configured on Render with Vercel deployment URL (supports comma-separated origins).
+- **Frontend (Vercel)**: Next.js 14 deployed with root directory `frontend` and `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com`.
+
+### Pre-Deployment Validation
+Run the automated configuration validator before deploying:
+```bash
+python backend/scripts/validate_config.py --env production
+```
 
 ### Health & Observability Endpoints
-- **Liveness Check**: `GET /` — Returns `{"status": "ok"}` when process is running.
-- **Readiness Check**: `GET /health/ready` — Inspects vector store initialization, active backend (`chroma` or `pinecone`), FastEmbed embedding model status, and Groq API key presence without unmetered external calls.
+- **Liveness Check**: `GET /health/live` — Returns `{"status": "alive", "uptime_seconds": ..., "version": "1.0.0"}` immediately without dependency calls.
+- **Readiness Check**: `GET /health/ready` — Inspects vector store initialization, active backend (`chroma` or `pinecone`), embedder status, and Groq API key presence without external network probes.
+- **Telemetry & Metrics**: `GET /api/metrics` — Returns in-memory operational counters and rolling p50/p95 latency metrics.
+- **Cache Diagnostics**: `GET /api/cache/stats` — Reports LRU cache hit/miss rates and eviction stats.

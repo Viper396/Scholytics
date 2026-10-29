@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: scholytics-backend
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --app-dir backend
+    healthCheckPath: /health/live
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: ENVIRONMENT
+        value: production
+      - key: VECTOR_STORE_BACKEND
+        value: pinecone
+      - key: PINECONE_INDEX_NAME
+        value: scholytics-papers
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: ENABLE_CACHE
+        value: "true"
+      - key: ENABLE_RERANKER
+        value: "false"

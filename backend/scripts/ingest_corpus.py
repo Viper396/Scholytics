@@ -24,12 +24,10 @@ import asyncio
 import logging
 import os
 import sys
-import time
 
 # Ensure backend root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from db.chroma_adapter import ChromaAdapter
 from main import _build_vector_store
 from services import arxiv_client, ingestion
 

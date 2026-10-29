@@ -9,7 +9,6 @@ External services (arXiv, Groq) are mocked so tests run without API keys.
 """
 from __future__ import annotations
 
-import json
 import sys
 import types
 from typing import Any

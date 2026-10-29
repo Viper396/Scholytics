@@ -15,7 +15,6 @@ from routers.search import router as search_router
 from services.metrics import (
 	SecretRedactionFilter,
 	generate_request_id,
-	get_request_id,
 	metrics,
 	set_request_id,
 )
@@ -36,17 +35,27 @@ logger = logging.getLogger(__name__)
 _SAFE_REQ_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 
 
+def is_production() -> bool:
+	"""Check if running in a production deployment (Render, production environment, etc.)."""
+	env = os.getenv("ENVIRONMENT", os.getenv("ENV", "")).strip().lower()
+	return env in ("production", "prod") or os.getenv("RENDER", "").strip().lower() == "true"
+
+
 def get_allowed_origins() -> list[str]:
-	frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").strip()
-	if not frontend_origin:
+	raw_origins = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").strip()
+	if not raw_origins:
 		logger.warning(
 			"FRONTEND_ORIGIN is not set. CORS will reject cross-origin requests. "
 			"Set FRONTEND_ORIGIN to your deployed frontend URL in production."
 		)
 		return []
-	# Normalize: allow both with and without trailing slash to prevent CORS mismatch
-	origins = {frontend_origin, frontend_origin.rstrip("/")}
-	return [o for o in origins if o]
+	origins: set[str] = set()
+	for part in raw_origins.split(","):
+		cleaned = part.strip()
+		if cleaned:
+			origins.add(cleaned)
+			origins.add(cleaned.rstrip("/"))
+	return sorted(origins)
 
 
 def _build_vector_store():
@@ -59,16 +68,27 @@ def _build_vector_store():
 	* ``"pinecone"`` – Pinecone serverless index (requires ``PINECONE_API_KEY``).
 
 	Raises ``RuntimeError`` with a clear, actionable message if the selected
-	backend cannot be initialised.  Secrets are never included in log output.
+	backend cannot be initialised. In production, prevents silently switching
+	to an empty ephemeral Chroma instance. Secrets are never included in log output.
 	"""
 	backend = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
 
+	if is_production():
+		if backend == "chroma" and os.getenv("ALLOW_EPHEMERAL_CHROMA_IN_PRODUCTION", "false").strip().lower() != "true":
+			raise RuntimeError(
+				"Production environment detected (RENDER=true or ENVIRONMENT=production), "
+				"but VECTOR_STORE_BACKEND is set to ephemeral 'chroma'. "
+				"Production requires VECTOR_STORE_BACKEND=pinecone with PINECONE_API_KEY and "
+				"PINECONE_INDEX_NAME configured. To bypass this guard for testing, set "
+				"ALLOW_EPHEMERAL_CHROMA_IN_PRODUCTION=true."
+			)
+
 	if backend == "pinecone":
-		from db.pinecone_adapter import PineconeAdapter  # noqa: PLC0415
+		from db.pinecone_adapter import PineconeAdapter
 		return PineconeAdapter()
 
 	if backend == "chroma":
-		from db.chroma_adapter import ChromaAdapter  # noqa: PLC0415
+		from db.chroma_adapter import ChromaAdapter
 		return ChromaAdapter()
 
 	raise RuntimeError(
@@ -82,10 +102,16 @@ async def lifespan(app: FastAPI):
 	# Validate required configuration at startup.
 	groq_key = os.getenv("GROQ_API_KEY", "").strip()
 	if not groq_key:
-		logger.warning(
-			"GROQ_API_KEY is not set. LLM summarization and synthesis will fail. "
-			"Set GROQ_API_KEY to enable these features."
-		)
+		if is_production():
+			logger.error(
+				"CRITICAL: GROQ_API_KEY is not configured in production. "
+				"LLM summarization and synthesis will fail. Set GROQ_API_KEY in Render."
+			)
+		else:
+			logger.warning(
+				"GROQ_API_KEY is not set. LLM summarization and synthesis will fail. "
+				"Set GROQ_API_KEY to enable these features."
+			)
 
 	backend_name = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
 	logger.info("Vector store backend selected: %s", backend_name)
@@ -96,6 +122,10 @@ async def lifespan(app: FastAPI):
 		logger.info("Vector store initialised successfully (%s).", backend_name)
 	except Exception as exc:  # noqa: BLE001
 		logger.error("Failed to initialise vector store (%s): %s", backend_name, exc)
+		if is_production():
+			raise RuntimeError(
+				f"Production startup failed: unable to initialise vector store backend ({backend_name}): {exc}"
+			) from exc
 		app.state.vector_store = None
 
 	# Warm up embedding model at startup so cold-start doesn't stall search requests.

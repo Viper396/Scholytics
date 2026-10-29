@@ -14,21 +14,19 @@ Tests verify:
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from db.chroma_adapter import ChromaAdapter
 from db.vector_store import (
-    canonicalize_arxiv_id,
     compute_paper_hash,
     extract_arxiv_version,
 )
 from main import app
 from services import ingestion
-from services.ingestion import IngestionCoordinator, IngestionStats, should_reindex_paper
+from services.ingestion import IngestionCoordinator, should_reindex_paper
 
 
 # ---------------------------------------------------------------------------

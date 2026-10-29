@@ -17,7 +17,6 @@ from services import arxiv_client, bm25, embedder, fusion, ingestion, reranker, 
 from services.cache import (
 	async_single_flight,
 	build_search_cache_key,
-	search_response_cache,
 )
 from services.metrics import metrics
 

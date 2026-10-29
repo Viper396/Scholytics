@@ -1,20 +1,17 @@
 from __future__ import annotations
 
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 from services.metrics import (
-    RequestIdFormatter,
     SecretRedactionFilter,
     generate_request_id,
-    get_request_id,
     metrics,
     redact_secrets,
-    set_request_id,
 )
 
 

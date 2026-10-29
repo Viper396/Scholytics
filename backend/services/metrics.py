@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextvars
 import logging
 import math
-import os
 import re
 import threading
 import time

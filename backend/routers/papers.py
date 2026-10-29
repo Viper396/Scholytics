@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 import time
 from typing import Any
@@ -11,13 +10,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from services import arxiv_client, comparer, summarizer
-from services.cache import (
-	async_single_flight,
-	build_compare_cache_key,
-	build_summary_cache_key,
-	paper_comparison_cache,
-	paper_summary_cache,
-)
 from services.metrics import metrics
 
 logger = logging.getLogger(__name__)

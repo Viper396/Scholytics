@@ -88,17 +88,18 @@ class PineconeAdapter(VectorStore):
     # ------------------------------------------------------------------
 
     def _connect_index(self):
-        """Return a connected Index object, verifying availability."""
+        """Return a connected Index object, verifying availability, dimension, and metric."""
         host = os.getenv("PINECONE_HOST", "").strip() or None
         if host:
             logger.info("PineconeAdapter: connecting directly to host %s", host)
             return self._pc.Index(self._index_name, host=host)
 
-        existing = [idx.name for idx in self._pc.list_indexes()]
-        if self._index_name not in existing:
+        indexes = self._pc.list_indexes()
+        index_names = [idx.name for idx in indexes]
+        if self._index_name not in index_names:
             auto_create = os.getenv("PINECONE_AUTO_CREATE_INDEX", "false").strip().lower() == "true"
             if auto_create:
-                from pinecone import ServerlessSpec  # noqa: PLC0415
+                from pinecone import ServerlessSpec
 
                 cloud = os.getenv("PINECONE_CLOUD", "aws").strip() or "aws"
                 region = os.getenv("PINECONE_REGION", "us-east-1").strip() or "us-east-1"
@@ -120,6 +121,30 @@ class PineconeAdapter(VectorStore):
                     "Create it in the Pinecone console (dimension=384, metric=cosine, serverless) "
                     "or set PINECONE_AUTO_CREATE_INDEX=true before starting the backend."
                 )
+        else:
+            # Validate index configuration against Scholytics requirements
+            for idx_info in indexes:
+                if getattr(idx_info, "name", "") == self._index_name:
+                    dim = getattr(idx_info, "dimension", None)
+                    if isinstance(dim, int) and dim != 384:
+                        raise RuntimeError(
+                            f"Pinecone index {self._index_name!r} has dimension={dim}, "
+                            "but Scholytics FastEmbed (bge-small-en-v1.5) requires dimension=384."
+                        )
+                    metric = getattr(idx_info, "metric", None)
+                    if isinstance(metric, str) and metric.lower() != "cosine":
+                        raise RuntimeError(
+                            f"Pinecone index {self._index_name!r} has metric={metric!r}, "
+                            "but Scholytics hybrid similarity retrieval requires metric='cosine'."
+                        )
+                    status = getattr(idx_info, "status", None)
+                    if status is not None and getattr(status, "ready", None) is False:
+                        logger.warning(
+                            "Pinecone index %r is not yet marked ready (state=%s)",
+                            self._index_name,
+                            getattr(status, "state", "unknown"),
+                        )
+                    break
 
         return self._pc.Index(self._index_name)
 
