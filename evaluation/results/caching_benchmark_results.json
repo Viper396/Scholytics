@@ -1,0 +1,100 @@
+{
+  "query_embedding": {
+    "cold_ms": 181.84,
+    "warm_ms": 0.007,
+    "speedup": "26089.0x"
+  },
+  "arxiv_paper_fetch": {
+    "cold_ms": 1284.2,
+    "warm_ms": 0.002,
+    "speedup": "632612.3x"
+  },
+  "arxiv_search_query": {
+    "cold_ms": 847.8,
+    "warm_ms": 0.01,
+    "speedup": "85120.2x"
+  },
+  "end_to_end_search_api": {
+    "cold_ms": 987.22,
+    "warm_ms": 2.95,
+    "speedup": "334.6x"
+  },
+  "single_flight_stampede": {
+    "concurrent_requests": 10,
+    "upstream_executions": 1,
+    "parallel_duration_ms": 44.15
+  },
+  "memory_telemetry": {
+    "enabled": true,
+    "total_entries": 7,
+    "total_estimated_memory_kb": 12.09,
+    "caches": {
+      "arxiv_search": {
+        "name": "arxiv_search",
+        "size": 1,
+        "maxsize": 128,
+        "hits": 30,
+        "misses": 4,
+        "hit_ratio": 0.8824,
+        "evictions": 0,
+        "expirations": 0,
+        "estimated_memory_bytes": 576
+      },
+      "arxiv_paper": {
+        "name": "arxiv_paper",
+        "size": 5,
+        "maxsize": 512,
+        "hits": 20,
+        "misses": 2,
+        "hit_ratio": 0.9091,
+        "evictions": 0,
+        "expirations": 0,
+        "estimated_memory_bytes": 4687
+      },
+      "query_embedding": {
+        "name": "query_embedding",
+        "size": 1,
+        "maxsize": 256,
+        "hits": 30,
+        "misses": 2,
+        "hit_ratio": 0.9375,
+        "evictions": 0,
+        "expirations": 0,
+        "estimated_memory_bytes": 6738
+      },
+      "search_response": {
+        "name": "search_response",
+        "size": 0,
+        "maxsize": 64,
+        "hits": 0,
+        "misses": 0,
+        "hit_ratio": 0.0,
+        "evictions": 0,
+        "expirations": 0,
+        "estimated_memory_bytes": 128
+      },
+      "paper_summary": {
+        "name": "paper_summary",
+        "size": 0,
+        "maxsize": 128,
+        "hits": 0,
+        "misses": 0,
+        "hit_ratio": 0.0,
+        "evictions": 0,
+        "expirations": 0,
+        "estimated_memory_bytes": 128
+      },
+      "paper_comparison": {
+        "name": "paper_comparison",
+        "size": 0,
+        "maxsize": 64,
+        "hits": 0,
+        "misses": 0,
+        "hit_ratio": 0.0,
+        "evictions": 0,
+        "expirations": 0,
+        "estimated_memory_bytes": 128
+      }
+    }
+  }
+}

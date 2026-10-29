@@ -14,6 +14,11 @@ from pydantic import BaseModel, Field, field_validator
 
 from db.vector_store import canonicalize_arxiv_id
 from services import arxiv_client, bm25, embedder, fusion, ingestion, reranker, summarizer
+from services.cache import (
+	async_single_flight,
+	build_search_cache_key,
+	search_response_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -128,208 +133,224 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 			except ValueError as exc:
 				raise HTTPException(status_code=422, detail="filters.date_from must be YYYY-MM-DD") from exc
 
-	# ------------------------------------------------------------------
-	# Step 1: Live Discovery from arXiv (Fresh literature search)
-	# ------------------------------------------------------------------
-	try:
-		papers = await asyncio.to_thread(
-			arxiv_client.search_papers,
-			query=query,
-			max_results=payload.max_results,
-			filters=filters_dict,
-		)
-	except RuntimeError as exc:
-		logger.error("arXiv search upstream failure for query %r: %s", query, exc)
-		raise HTTPException(status_code=503, detail="arXiv search is currently unavailable. Please try again.") from exc
-	except Exception as exc:  # noqa: BLE001
-		logger.error("Unexpected search error for query %r: %s", query, exc)
-		raise HTTPException(status_code=500, detail="Search pipeline failed") from exc
-
-	if not papers:
-		return {"query": query, "results": [], "total": 0}
-
 	# Retrieve the configured vector store from app state
 	vector_store = getattr(request.app.state, "vector_store", None)
 	if vector_store is None:
 		raise HTTPException(status_code=500, detail="Vector store is unavailable")
 
-	# ------------------------------------------------------------------
-	# Step 2: Query Embedding
-	# ------------------------------------------------------------------
-	try:
-		query_vector = embedder.embed_query(query)
-	except RuntimeError as exc:
-		logger.warning("Query embedding unavailable, returning unranked results: %s", exc)
-		return _unranked_response(query, papers)
+	raw_backend = getattr(vector_store, "backend_name", None)
+	backend_name = raw_backend if isinstance(raw_backend, str) else type(vector_store).__name__
+	rerank_enabled = reranker.is_reranker_enabled()
 
-	# ------------------------------------------------------------------
-	# Step 3: Incremental, Bounded Ingestion
-	# Check which candidate papers are already indexed in Pinecone/Chroma.
-	# Embed and upsert ONLY newly discovered or modified papers.
-	# Concurrent requests for identical papers are deduplicated.
-	# ------------------------------------------------------------------
-	try:
-		ingestion_stats = await ingestion.ingest_candidates(
-			papers=papers,
-			vector_store=vector_store,
-			max_batch=ingestion.DEFAULT_PER_REQUEST_INGESTION_LIMIT,
-		)
-		if ingestion_stats.failed > 0 and ingestion_stats.newly_indexed == 0 and ingestion_stats.already_indexed == 0:
-			# Embedding failed for all candidates and none were already indexed
-			logger.warning("All embeddings failed during ingestion; returning unranked results")
-			return _unranked_response(query, papers)
-	except RuntimeError as exc:
-		logger.warning("Embedding model unavailable during ingestion: %s", exc)
-		return _unranked_response(query, papers)
+	search_cache_key = build_search_cache_key(
+		query=query,
+		max_results=payload.max_results,
+		filters=filters_dict,
+		vector_backend=backend_name,
+		enable_reranker=rerank_enabled,
+	)
 
-	fetched_ids = [str(paper.get("arxiv_id")) for paper in papers if paper.get("arxiv_id")]
-	canonical_ids = list(dict.fromkeys(canonicalize_arxiv_id(aid) for aid in fetched_ids if aid))
-
-	if not canonical_ids:
-		return {"query": query, "results": [], "total": 0}
-
-	# ------------------------------------------------------------------
-	# Step 4: Hybrid Reranking (Dense Semantic + BM25 Keyword via RRF)
-	# Combines dense vector similarity with exact keyword scoring.
-	# Degrades gracefully if either retrieval channel is unavailable.
-	# ------------------------------------------------------------------
-	dense_matches: list[dict[str, Any]] = []
-	try:
-		dense_matches = vector_store.query(
-			query_vector=query_vector,
-			n_results=min(payload.max_results, len(canonical_ids)),
-			filter_ids=canonical_ids,
-		)
-	except Exception as exc:  # noqa: BLE001
-		logger.error("Vector store query failed: %s", exc)
-
-	bm25_matches: list[dict[str, Any]] = []
-	try:
-		bm25_index = bm25.get_bm25_index()
-		bm25_matches = bm25_index.search(
-			query=query,
-			top_k=min(payload.max_results, len(canonical_ids)),
-			filter_ids=canonical_ids,
-		)
-	except Exception as exc:  # noqa: BLE001
-		logger.error("BM25 keyword search failed: %s", exc)
-
-	# Fused rank resolution using tuned parameters (k=10.0, wd=1.0, wk=1.0)
-	if dense_matches and bm25_matches:
-		matches = fusion.reciprocal_rank_fusion(
-			dense_results=dense_matches,
-			keyword_results=bm25_matches,
-			k=10.0,
-			weight_dense=1.0,
-			weight_keyword=1.0,
-			top_k=payload.max_results,
-		)
-		retrieval_mode = "hybrid"
-	elif dense_matches:
-		matches = dense_matches
-		retrieval_mode = "dense_only"
-	elif bm25_matches:
-		matches = bm25_matches
-		retrieval_mode = "keyword_only"
-	else:
-		matches = []
-		retrieval_mode = "none"
-
-	if not matches and not dense_matches and not bm25_matches:
-		raise HTTPException(status_code=500, detail="Search pipeline failed")
-
-	papers_by_id: dict[str, dict[str, Any]] = {}
-	for paper in papers:
-		raw_id = str(paper.get("arxiv_id", "")).strip()
-		if raw_id:
-			papers_by_id[raw_id] = paper
-			papers_by_id[canonicalize_arxiv_id(raw_id)] = paper
-
-	# ------------------------------------------------------------------
-	# Step 4b: Optional Cross-Encoder Reranking
-	# Evaluated only when ENABLE_RERANKER=true. Default is false to
-	# preserve sub-second latency and Render free-tier RAM limits.
-	# ------------------------------------------------------------------
-	if reranker.is_reranker_enabled() and matches:
+	async def _execute_search() -> dict[str, Any]:
+		# ------------------------------------------------------------------
+		# Step 1: Live Discovery from arXiv (Fresh literature search)
+		# ------------------------------------------------------------------
 		try:
-			rerank_input = []
-			for m in matches:
-				cid = m["id"]
-				p = papers_by_id.get(cid) or {}
-				rerank_input.append({
-					"id": cid,
-					"title": p.get("title", ""),
-					"abstract": p.get("abstract", ""),
-					"score": m.get("score", 0.0),
-					"metadata": m.get("metadata", {}),
-				})
-			reranked_matches = reranker.rerank(
+			papers = await asyncio.to_thread(
+				arxiv_client.search_papers,
 				query=query,
-				candidates=rerank_input,
+				max_results=payload.max_results,
+				filters=filters_dict,
+			)
+		except RuntimeError as exc:
+			logger.error("arXiv search upstream failure for query %r: %s", query, exc)
+			raise HTTPException(status_code=503, detail="arXiv search is currently unavailable. Please try again.") from exc
+		except Exception as exc:  # noqa: BLE001
+			logger.error("Unexpected search error for query %r: %s", query, exc)
+			raise HTTPException(status_code=500, detail="Search pipeline failed") from exc
+
+		if not papers:
+			return {"query": query, "results": [], "total": 0}
+
+		# ------------------------------------------------------------------
+		# Step 2: Query Embedding
+		# ------------------------------------------------------------------
+		try:
+			query_vector = embedder.embed_query(query)
+		except RuntimeError as exc:
+			logger.warning("Query embedding unavailable, returning unranked results: %s", exc)
+			return _unranked_response(query, papers)
+
+		# ------------------------------------------------------------------
+		# Step 3: Incremental, Bounded Ingestion
+		# Check which candidate papers are already indexed in Pinecone/Chroma.
+		# Embed and upsert ONLY newly discovered or modified papers.
+		# Concurrent requests for identical papers are deduplicated.
+		# ------------------------------------------------------------------
+		try:
+			ingestion_stats = await ingestion.ingest_candidates(
+				papers=papers,
+				vector_store=vector_store,
+				max_batch=ingestion.DEFAULT_PER_REQUEST_INGESTION_LIMIT,
+			)
+			if ingestion_stats.failed > 0 and ingestion_stats.newly_indexed == 0 and ingestion_stats.already_indexed == 0:
+				# Embedding failed for all candidates and none were already indexed
+				logger.warning("All embeddings failed during ingestion; returning unranked results")
+				return _unranked_response(query, papers)
+		except RuntimeError as exc:
+			logger.warning("Embedding model unavailable during ingestion: %s", exc)
+			return _unranked_response(query, papers)
+
+		fetched_ids = [str(paper.get("arxiv_id")) for paper in papers if paper.get("arxiv_id")]
+		canonical_ids = list(dict.fromkeys(canonicalize_arxiv_id(aid) for aid in fetched_ids if aid))
+
+		if not canonical_ids:
+			return {"query": query, "results": [], "total": 0}
+
+		# ------------------------------------------------------------------
+		# Step 4: Hybrid Reranking (Dense Semantic + BM25 Keyword via RRF)
+		# Combines dense vector similarity with exact keyword scoring.
+		# Degrades gracefully if either retrieval channel is unavailable.
+		# ------------------------------------------------------------------
+		dense_matches: list[dict[str, Any]] = []
+		try:
+			dense_matches = vector_store.query(
+				query_vector=query_vector,
+				n_results=min(payload.max_results, len(canonical_ids)),
+				filter_ids=canonical_ids,
+			)
+		except Exception as exc:  # noqa: BLE001
+			logger.error("Vector store query failed: %s", exc)
+
+		bm25_matches: list[dict[str, Any]] = []
+		try:
+			bm25_index = bm25.get_bm25_index()
+			bm25_matches = bm25_index.search(
+				query=query,
+				top_k=min(payload.max_results, len(canonical_ids)),
+				filter_ids=canonical_ids,
+			)
+		except Exception as exc:  # noqa: BLE001
+			logger.error("BM25 keyword search failed: %s", exc)
+
+		# Fused rank resolution using tuned parameters (k=10.0, wd=1.0, wk=1.0)
+		if dense_matches and bm25_matches:
+			matches = fusion.reciprocal_rank_fusion(
+				dense_results=dense_matches,
+				keyword_results=bm25_matches,
+				k=10.0,
+				weight_dense=1.0,
+				weight_keyword=1.0,
 				top_k=payload.max_results,
 			)
-			if reranked_matches:
-				matches = reranked_matches
-				retrieval_mode = f"{retrieval_mode}_reranked"
-		except Exception as exc:  # noqa: BLE001
-			logger.warning("Reranker invocation failed: %s; keeping original ordering", exc)
+			retrieval_mode = "hybrid"
+		elif dense_matches:
+			matches = dense_matches
+			retrieval_mode = "dense_only"
+		elif bm25_matches:
+			matches = bm25_matches
+			retrieval_mode = "keyword_only"
+		else:
+			matches = []
+			retrieval_mode = "none"
 
-	# ------------------------------------------------------------------
-	# Step 5: Application-level metadata filtering and result mapping
-	# Note: Date boundaries and fine-grained categories are enforced
-	# here to ensure exact precision regardless of vector backend syntax.
-	# ------------------------------------------------------------------
-	is_degraded = embedder.is_using_hash_fallback()
-	results: list[dict[str, Any]] = []
+		if not matches and not dense_matches and not bm25_matches:
+			raise HTTPException(status_code=500, detail="Search pipeline failed")
 
-	for match in matches:
-		paper_id = match["id"]
-		relevance_score = max(0.0, min(1.0, match["score"]))
-		metadata = match.get("metadata", {})
+		papers_by_id: dict[str, dict[str, Any]] = {}
+		for paper in papers:
+			raw_id = str(paper.get("arxiv_id", "")).strip()
+			if raw_id:
+				papers_by_id[raw_id] = paper
+				papers_by_id[canonicalize_arxiv_id(raw_id)] = paper
 
-		source_paper = papers_by_id.get(str(paper_id)) or papers_by_id.get(canonicalize_arxiv_id(str(paper_id)), {})
-		published_str = str(source_paper.get("published") or metadata.get("published") or "")
-		categories = source_paper.get("categories") or _split_csv(metadata.get("categories"))
+		# ------------------------------------------------------------------
+		# Step 4b: Optional Cross-Encoder Reranking
+		# Evaluated only when ENABLE_RERANKER=true. Default is false to
+		# preserve sub-second latency and Render free-tier RAM limits.
+		# ------------------------------------------------------------------
+		if reranker.is_reranker_enabled() and matches:
+			try:
+				rerank_input = []
+				for m in matches:
+					cid = m["id"]
+					p = papers_by_id.get(cid) or {}
+					rerank_input.append({
+						"id": cid,
+						"title": p.get("title", ""),
+						"abstract": p.get("abstract", ""),
+						"score": m.get("score", 0.0),
+						"metadata": m.get("metadata", {}),
+					})
+				reranked_matches = reranker.rerank(
+					query=query,
+					candidates=rerank_input,
+					top_k=payload.max_results,
+				)
+				if reranked_matches:
+					matches = reranked_matches
+					retrieval_mode = f"{retrieval_mode}_reranked"
+			except Exception as exc:  # noqa: BLE001
+				logger.warning("Reranker invocation failed: %s; keeping original ordering", exc)
 
-		# Application-level date filter verification
-		if filters_dict and filters_dict.get("date_from"):
-			filter_date_str = filters_dict["date_from"]
-			if published_str and published_str < filter_date_str:
-				continue
+		# ------------------------------------------------------------------
+		# Step 5: Application-level metadata filtering and result mapping
+		# Note: Date boundaries and fine-grained categories are enforced
+		# here to ensure exact precision regardless of vector backend syntax.
+		# ------------------------------------------------------------------
+		is_degraded = embedder.is_using_hash_fallback()
+		results: list[dict[str, Any]] = []
 
-		result = {
-			"arxiv_id": str(source_paper.get("arxiv_id") or metadata.get("arxiv_id") or paper_id),
-			"title": str(source_paper.get("title") or metadata.get("title") or ""),
-			"authors": source_paper.get("authors") or _split_csv(metadata.get("authors")),
-			"abstract": str(source_paper.get("abstract") or metadata.get("abstract") or ""),
-			"published": published_str,
-			"categories": categories,
-			"pdf_url": str(source_paper.get("pdf_url") or metadata.get("pdf_url") or ""),
-			"entry_url": str(source_paper.get("entry_url") or metadata.get("entry_url") or ""),
-			"relevance_score": relevance_score,
-			"ranking_degraded": is_degraded,
+		for match in matches:
+			paper_id = match["id"]
+			relevance_score = max(0.0, min(1.0, match["score"]))
+			metadata = match.get("metadata", {})
+
+			source_paper = papers_by_id.get(str(paper_id)) or papers_by_id.get(canonicalize_arxiv_id(str(paper_id)), {})
+			published_str = str(source_paper.get("published") or metadata.get("published") or "")
+			categories = source_paper.get("categories") or _split_csv(metadata.get("categories"))
+
+			# Application-level date filter verification
+			if filters_dict and filters_dict.get("date_from"):
+				filter_date_str = filters_dict["date_from"]
+				if published_str and published_str < filter_date_str:
+					continue
+
+			result = {
+				"arxiv_id": str(source_paper.get("arxiv_id") or metadata.get("arxiv_id") or paper_id),
+				"title": str(source_paper.get("title") or metadata.get("title") or ""),
+				"authors": source_paper.get("authors") or _split_csv(metadata.get("authors")),
+				"abstract": str(source_paper.get("abstract") or metadata.get("abstract") or ""),
+				"published": published_str,
+				"categories": categories,
+				"pdf_url": str(source_paper.get("pdf_url") or metadata.get("pdf_url") or ""),
+				"entry_url": str(source_paper.get("entry_url") or metadata.get("entry_url") or ""),
+				"relevance_score": relevance_score,
+				"ranking_degraded": is_degraded,
+			}
+			results.append(result)
+
+		results.sort(key=lambda item: item["relevance_score"] or 0.0, reverse=True)
+
+		response: dict[str, Any] = {
+			"query": query,
+			"results": results,
+			"total": len(results),
+			"retrieval_mode": retrieval_mode,
+			"ingestion": {
+				"discovered": ingestion_stats.discovered,
+				"already_indexed": ingestion_stats.already_indexed,
+				"newly_indexed": ingestion_stats.newly_indexed,
+			},
 		}
-		results.append(result)
+		if is_degraded:
+			response["ranking_note"] = (
+				"Ranking uses hash-based embeddings (development fallback). "
+				"Results do not reflect genuine semantic similarity."
+			)
 
-	results.sort(key=lambda item: item["relevance_score"] or 0.0, reverse=True)
+		return response
 
-	response: dict[str, Any] = {
-		"query": query,
-		"results": results,
-		"total": len(results),
-		"retrieval_mode": retrieval_mode,
-		"ingestion": {
-			"discovered": ingestion_stats.discovered,
-			"already_indexed": ingestion_stats.already_indexed,
-			"newly_indexed": ingestion_stats.newly_indexed,
-		},
-	}
-	if is_degraded:
-		response["ranking_note"] = (
-			"Ranking uses hash-based embeddings (development fallback). "
-			"Results do not reflect genuine semantic similarity."
-		)
-	return response
+	return await async_single_flight.execute(search_cache_key, _execute_search)
 
 
 def _unranked_response(query: str, papers: list[dict[str, Any]]) -> dict[str, Any]:

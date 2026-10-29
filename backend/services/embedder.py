@@ -225,7 +225,18 @@ def index_papers(papers: list[dict], vector_store) -> int:
 
 
 def embed_query(query: str) -> list[float]:
+	from services.cache import build_query_embedding_cache_key, query_embedding_cache  # noqa: PLC0415
+
+	q_key = build_query_embedding_cache_key(query)
+	cached = query_embedding_cache.get(q_key)
+	if cached is not None:
+		return list(cached)
+
 	embeddings = embed_texts([query])
 	if not embeddings:
 		return []
-	return embeddings[0]
+
+	vec = embeddings[0]
+	if not is_using_hash_fallback():
+		query_embedding_cache.set(q_key, vec)
+	return vec

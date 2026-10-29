@@ -10,6 +10,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from services import arxiv_client, comparer, summarizer
+from services.cache import (
+	async_single_flight,
+	build_compare_cache_key,
+	build_summary_cache_key,
+	paper_comparison_cache,
+	paper_summary_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +114,7 @@ async def summarize_paper(
 			summarizer.summarize_paper,
 			title=title,
 			abstract=abstract,
+			arxiv_id=arxiv_id,
 		)
 	except Exception as exc:  # noqa: BLE001
 		logger.error("Summary generation failed for %s: %s", arxiv_id, exc)

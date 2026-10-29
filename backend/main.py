@@ -163,3 +163,18 @@ async def readiness_check() -> dict[str, object]:
 		"reranker": rerank_status,
 		"issues": issues,
 	}
+
+
+@app.get("/api/cache/stats", tags=["cache"])
+async def cache_stats() -> dict[str, object]:
+	"""Diagnostic cache telemetry and memory usage."""
+	from services.cache import get_all_cache_stats
+	return get_all_cache_stats()
+
+
+@app.post("/api/cache/clear", tags=["cache"])
+async def clear_cache() -> dict[str, str]:
+	"""Evict all disposable in-memory caches."""
+	from services.cache import clear_all_caches
+	clear_all_caches()
+	return {"status": "cleared"}

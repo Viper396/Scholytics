@@ -350,6 +350,7 @@ export default function Home() {
   const [showReadingList, setShowReadingList] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  const searchCacheRef = useRef<Map<string, SearchResponse>>(new Map());
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -434,6 +435,17 @@ export default function Home() {
       setIsSynthesisComplete(false);
       setCopyLabel("Copy");
 
+      const cacheKey = `${query.toLowerCase()}::${maxResults}::${yearFrom}::${[...selectedCategories].sort().join(",")}`;
+      const cached = searchCacheRef.current.get(cacheKey);
+      if (cached) {
+        setResults(cached.results ?? []);
+        setRankingNote(cached.ranking_note ?? null);
+        setExpandedAbstracts({});
+        setSummaryById({});
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const payload: {
           query: string;
@@ -470,6 +482,12 @@ export default function Home() {
 
         const data = (await response.json()) as SearchResponse;
         if (controller.signal.aborted) return;
+
+        if (searchCacheRef.current.size >= 20) {
+          const firstKey = searchCacheRef.current.keys().next().value;
+          if (firstKey) searchCacheRef.current.delete(firstKey);
+        }
+        searchCacheRef.current.set(cacheKey, data);
 
         setResults(data.results ?? []);
         setRankingNote(data.ranking_note ?? null);
@@ -668,6 +686,17 @@ export default function Home() {
     }
 
     const boundedIds = targetIds.slice(0, 4);
+
+    if (
+      comparisonResult &&
+      comparisonResult.papers.length === boundedIds.length &&
+      boundedIds.every((id) => comparisonResult.papers.some((p) => p.arxiv_id === id)) &&
+      !comparisonError
+    ) {
+      setShowComparisonView(true);
+      return;
+    }
+
     const selectedPapers = results.filter((p) => boundedIds.includes(p.arxiv_id));
 
     setIsComparing(true);
@@ -773,6 +802,15 @@ export default function Home() {
   }
 
   async function summarizePaper(arxivId: string) {
+    const existing = summaryById[arxivId];
+    if (existing?.summary && !existing.error) {
+      setSummaryById((current) => ({
+        ...current,
+        [arxivId]: { ...current[arxivId], open: !current[arxivId]?.open },
+      }));
+      return;
+    }
+
     setSummaryById((current) => ({
       ...current,
       [arxivId]: { ...current[arxivId], open: true, loading: true, error: undefined },

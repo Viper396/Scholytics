@@ -42,7 +42,15 @@ def _get_client() -> Groq:
 	return _GROQ_CLIENT
 
 
-def summarize_paper(title: str, abstract: str) -> str:
+def summarize_paper(title: str, abstract: str, arxiv_id: str = "") -> str:
+	from services.cache import build_summary_cache_key, paper_summary_cache
+
+	cache_key = build_summary_cache_key(arxiv_id, title, abstract) if (arxiv_id or title or abstract) else ""
+	if cache_key:
+		cached = paper_summary_cache.get(cache_key)
+		if cached:
+			return cached
+
 	client = _get_client()
 	model_name = _get_model_name()
 
@@ -78,7 +86,10 @@ def summarize_paper(title: str, abstract: str) -> str:
 		stream=False,
 		max_tokens=400,
 	)
-	return (response.choices[0].message.content or "").strip()
+	result = (response.choices[0].message.content or "").strip()
+	if cache_key and result:
+		paper_summary_cache.set(cache_key, result)
+	return result
 
 
 def summarize_multiple(papers: list[dict]) -> list[dict]:

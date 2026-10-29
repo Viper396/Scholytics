@@ -102,6 +102,13 @@ def compare_papers(
 	if len(papers) < _MIN_COMPARE_PAPERS:
 		raise ValueError(f"At least {_MIN_COMPARE_PAPERS} papers are required for comparison (received {len(papers)})")
 
+	from services.cache import build_compare_cache_key, paper_comparison_cache  # noqa: PLC0415
+	cache_key = build_compare_cache_key(papers, query) if len(papers) >= _MIN_COMPARE_PAPERS else ""
+	if cache_key:
+		cached = paper_comparison_cache.get(cache_key)
+		if cached:
+			return ComparisonResult.model_validate(cached)
+
 	# Bounded input subset (max 4 papers) to respect context and token limits
 	eval_papers = papers[:_MAX_COMPARE_PAPERS]
 
@@ -238,7 +245,7 @@ def compare_papers(
 	differences = [str(d).strip() for d in (data.get("differences") or []) if str(d).strip()]
 	research_gaps = [str(g).strip() for g in (data.get("research_gaps") or []) if str(g).strip()]
 
-	return ComparisonResult(
+	result = ComparisonResult(
 		papers=validated_items,
 		similarities=similarities,
 		differences=differences,
@@ -249,3 +256,6 @@ def compare_papers(
 			"Research gaps represent model-generated interpretations based on reported limitations."
 		),
 	)
+	if cache_key:
+		paper_comparison_cache.set(cache_key, result.model_dump())
+	return result
