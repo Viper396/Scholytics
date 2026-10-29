@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -9,27 +10,66 @@ from routers.graph import router as graph_router
 from routers.papers import router as papers_router
 from routers.search import router as search_router
 
+logging.basicConfig(
+	level=logging.INFO,
+	format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 
 def get_allowed_origins() -> list[str]:
-    frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").strip()
-    return [frontend_origin] if frontend_origin else []
+	frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").strip()
+	if not frontend_origin:
+		logger.warning(
+			"FRONTEND_ORIGIN is not set. CORS will reject cross-origin requests. "
+			"Set FRONTEND_ORIGIN to your deployed frontend URL in production."
+		)
+		return []
+	return [frontend_origin]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize a shared Chroma collection on startup.
-    app.state.chroma_collection = get_collection()
-    yield
+	# Validate required configuration at startup.
+	groq_key = os.getenv("GROQ_API_KEY", "").strip()
+	if not groq_key:
+		logger.warning(
+			"GROQ_API_KEY is not set. LLM summarization and synthesis will fail. "
+			"Set GROQ_API_KEY to enable these features."
+		)
+
+	# Initialize ChromaDB collection.
+	try:
+		app.state.chroma_collection = get_collection()
+		logger.info("ChromaDB collection initialized successfully.")
+	except Exception as exc:  # noqa: BLE001
+		logger.error("Failed to initialize ChromaDB collection: %s", exc)
+		app.state.chroma_collection = None
+
+	logger.info("Scholytics backend started.")
+	yield
+	logger.info("Scholytics backend shutting down.")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+	title="Scholytics API",
+	description=(
+		"Semantic research discovery: arXiv search, paper summaries, "
+		"streaming synthesis, and relationship graph construction."
+	),
+	version="1.0.0",
+	lifespan=lifespan,
+	# Do not expose internal traceback details in production error responses.
+	docs_url="/docs",
+	redoc_url="/redoc",
+)
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=get_allowed_origins(),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+	CORSMiddleware,
+	allow_origins=get_allowed_origins(),
+	allow_credentials=True,
+	allow_methods=["*"],
+	allow_headers=["*"],
 )
 
 app.include_router(search_router)
@@ -37,6 +77,31 @@ app.include_router(papers_router)
 app.include_router(graph_router)
 
 
-@app.get("/")
+@app.get("/", tags=["health"])
 async def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+	"""Liveness check — returns ok when the process is running."""
+	return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["health"])
+async def readiness_check() -> dict[str, object]:
+	"""
+	Readiness check — reports whether key dependencies are available.
+
+	Does NOT make external network calls on every request.
+	"""
+	collection = getattr(app.state, "chroma_collection", None)
+	groq_key_configured = bool(os.getenv("GROQ_API_KEY", "").strip())
+
+	issues: list[str] = []
+	if collection is None:
+		issues.append("ChromaDB collection is unavailable")
+	if not groq_key_configured:
+		issues.append("GROQ_API_KEY is not configured")
+
+	return {
+		"status": "ready" if not issues else "degraded",
+		"chroma": "ok" if collection is not None else "unavailable",
+		"groq_configured": groq_key_configured,
+		"issues": issues,
+	}

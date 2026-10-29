@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type PaperResult = {
   arxiv_id: string;
@@ -13,13 +15,15 @@ type PaperResult = {
   categories: string[];
   pdf_url: string;
   entry_url: string;
-  relevance_score: number;
+  relevance_score: number | null;
+  ranking_degraded?: boolean;
 };
 
 type SearchResponse = {
   query: string;
   results: PaperResult[];
   total: number;
+  ranking_note?: string;
 };
 
 type SummaryState = {
@@ -29,22 +33,44 @@ type SummaryState = {
   error?: string;
 };
 
-const AVAILABLE_CATEGORIES = ["cs.AI", "cs.LG", "cs.CV", "cs.CL", "stat.ML"];
-const CURRENT_YEAR = new Date().getFullYear();
-const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
+type ReadingListEntry = {
+  arxiv_id: string;
+  title: string;
+  authors: string[];
+  published: string;
+  pdf_url: string;
+  entry_url: string;
+  savedAt: string;
+};
 
-function clampScore(score: number): number {
-  if (Number.isNaN(score)) {
-    return 0;
-  }
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const AVAILABLE_CATEGORIES = [
+  "cs.AI", "cs.LG", "cs.CV", "cs.CL", "stat.ML",
+];
+
+const EXAMPLE_QUERIES = [
+  "Retrieval-augmented generation evaluation",
+  "LLM reasoning and inference-time scaling",
+  "Efficient vision transformers",
+  "AI agent planning",
+];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_YEAR = 2015;
+const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
+const READING_LIST_STORAGE_KEY = "scholytics.readingList";
+
+// ─── Utility functions ────────────────────────────────────────────────────────
+
+function clampScore(score: number | null): number {
+  if (score === null || Number.isNaN(score)) return 0;
   return Math.max(0, Math.min(1, score));
 }
 
 function formatDate(value: string): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value || "Unknown date";
-  }
+  if (Number.isNaN(date.getTime())) return value || "Unknown date";
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -52,81 +78,269 @@ function formatDate(value: string): string {
   });
 }
 
+function loadReadingList(): ReadingListEntry[] {
+  try {
+    const raw = window.localStorage.getItem(READING_LIST_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item) =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof item.arxiv_id === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveReadingList(list: ReadingListEntry[]) {
+  try {
+    window.localStorage.setItem(READING_LIST_STORAGE_KEY, JSON.stringify(list));
+  } catch {
+    // localStorage may be full or unavailable; fail silently.
+  }
+}
+
+// ─── Skeleton loader ──────────────────────────────────────────────────────────
+
 function SkeletonCards() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {[0, 1, 2].map((key) => (
+    <div
+      className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+      role="status"
+      aria-label="Loading search results"
+    >
+      {[0, 1, 2, 3, 4, 5].map((key) => (
         <div
           key={key}
-          className="animate-pulse rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
+          className="animate-pulse rounded-[14px] border p-5"
+          style={{
+            borderColor: "var(--border-subtle)",
+            backgroundColor: "var(--bg-surface)",
+          }}
         >
-          <div className="mb-4 h-5 w-4/5 rounded bg-slate-800" />
-          <div className="mb-2 h-4 w-2/3 rounded bg-slate-800" />
-          <div className="mb-2 h-4 w-1/2 rounded bg-slate-800" />
-          <div className="mb-2 h-4 w-full rounded bg-slate-800" />
-          <div className="h-4 w-11/12 rounded bg-slate-800" />
+          <div className="mb-4 h-5 w-4/5 rounded-md" style={{ backgroundColor: "var(--bg-elevated)" }} />
+          <div className="mb-2 h-3.5 w-2/3 rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
+          <div className="mb-2 h-3.5 w-1/2 rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
+          <div className="mb-2 h-3 w-full rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
+          <div className="h-3 w-11/12 rounded" style={{ backgroundColor: "var(--bg-elevated)" }} />
         </div>
       ))}
     </div>
   );
 }
 
+// ─── Reading list panel ───────────────────────────────────────────────────────
+
+function ReadingListPanel({
+  list,
+  onRemove,
+  onClear,
+  onClose,
+}: {
+  list: ReadingListEntry[];
+  onRemove: (id: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col shadow-2xl"
+      style={{
+        backgroundColor: "var(--bg-surface)",
+        borderLeft: "1px solid var(--border-default)",
+      }}
+      role="dialog"
+      aria-label="Reading list"
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-4"
+        style={{ borderBottom: "1px solid var(--border-subtle)" }}
+      >
+        <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          Reading List
+          <span
+            className="ml-2 rounded-full px-2 py-0.5 text-xs font-bold"
+            style={{
+              backgroundColor: "var(--cyan-subtle)",
+              color: "var(--text-accent)",
+            }}
+          >
+            {list.length}
+          </span>
+        </h2>
+        <div className="flex items-center gap-2">
+          {list.length > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded-md px-2 py-1 text-xs font-medium transition-colors hover:opacity-80"
+              style={{ color: "var(--error)", border: "1px solid var(--error-border)" }}
+              aria-label="Clear entire reading list"
+            >
+              Clear all
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 transition-colors hover:opacity-80"
+            style={{
+              backgroundColor: "var(--bg-elevated)",
+              color: "var(--text-secondary)",
+            }}
+            aria-label="Close reading list"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {list.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            No saved papers yet. Click{" "}
+            <span style={{ color: "var(--text-accent)" }}>Save</span> on any paper
+            to add it here. Papers are stored locally in this browser.
+          </p>
+        ) : (
+          <ul className="space-y-3" role="list">
+            {list.map((entry) => (
+              <li
+                key={entry.arxiv_id}
+                className="rounded-xl p-3"
+                style={{
+                  backgroundColor: "var(--bg-elevated)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                <p
+                  className="mb-1 line-clamp-2 text-sm font-medium leading-snug"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {entry.title}
+                </p>
+                <p className="mb-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {formatDate(entry.published)} · {entry.arxiv_id}
+                </p>
+                <div className="flex gap-2">
+                  {entry.pdf_url && (
+                    <a
+                      href={entry.pdf_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors"
+                      style={{
+                        backgroundColor: "var(--cyan-subtle)",
+                        color: "var(--text-accent)",
+                        border: "1px solid rgba(6,182,212,0.25)",
+                      }}
+                    >
+                      PDF
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(entry.arxiv_id)}
+                    className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
+                    style={{ color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }}
+                    aria-label={`Remove ${entry.title} from reading list`}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <p
+        className="p-4 text-xs"
+        style={{
+          color: "var(--text-muted)",
+          borderTop: "1px solid var(--border-subtle)",
+        }}
+      >
+        Saved locally in this browser — not synced across devices.
+      </p>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function Home() {
   const [queryInput, setQueryInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
-  const [yearFrom, setYearFrom] = useState(2015);
+  const [yearFrom, setYearFrom] = useState(2020);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [maxResults, setMaxResults] = useState<number>(10);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [results, setResults] = useState<PaperResult[]>([]);
+  const [rankingNote, setRankingNote] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
   const [synthesisText, setSynthesisText] = useState("");
   const [synthesisError, setSynthesisError] = useState<string | null>(null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [isSynthesisComplete, setIsSynthesisComplete] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy");
+  const synthesisAbortRef = useRef<AbortController | null>(null);
 
-  const [expandedAbstracts, setExpandedAbstracts] = useState<
-    Record<string, boolean>
-  >({});
-  const [summaryById, setSummaryById] = useState<Record<string, SummaryState>>(
-    {},
-  );
+  const [expandedAbstracts, setExpandedAbstracts] = useState<Record<string, boolean>>({});
+  const [summaryById, setSummaryById] = useState<Record<string, SummaryState>>({});
   const [selectedForGraph, setSelectedForGraph] = useState<string[]>([]);
 
-  const normalizedSelectedForGraph = useMemo(() => {
-    return Array.from(
-      new Set(
-        selectedForGraph.map((id) => id.trim()).filter((id) => id.length > 0),
+  const [readingList, setReadingList] = useState<ReadingListEntry[]>([]);
+  const [showReadingList, setShowReadingList] = useState(false);
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ── Computed ──────────────────────────────────────────────────────────────
+
+  const normalizedSelectedForGraph = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedForGraph.map((id) => id.trim()).filter((id) => id.length > 0),
+        ),
       ),
-    );
-  }, [selectedForGraph]);
+    [selectedForGraph],
+  );
 
   const selectedGraphCount = normalizedSelectedForGraph.length;
 
   const graphHref = useMemo(() => {
-    if (normalizedSelectedForGraph.length === 0) {
-      return "/graph";
-    }
+    if (normalizedSelectedForGraph.length === 0) return "/graph";
     const ids = normalizedSelectedForGraph
       .map((id) => encodeURIComponent(id))
       .join(",");
     return `/graph?ids=${ids}`;
   }, [normalizedSelectedForGraph]);
 
+  const savedIds = useMemo(
+    () => new Set(readingList.map((e) => e.arxiv_id)),
+    [readingList],
+  );
+
+  const activeFilterCount =
+    (yearFrom > MIN_YEAR ? 1 : 0) + selectedCategories.length;
+
+  // ── Hydrate from localStorage ─────────────────────────────────────────────
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(GRAPH_SELECTION_STORAGE_KEY);
-      if (!raw) {
-        return;
-      }
+      if (!raw) return;
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) {
-        return;
-      }
-
+      if (!Array.isArray(parsed)) return;
       const cleaned = parsed
         .map((item) => String(item).trim())
         .filter((item) => item.length > 0);
@@ -134,6 +348,8 @@ export default function Home() {
     } catch {
       // Ignore malformed localStorage state.
     }
+
+    setReadingList(loadReadingList());
   }, []);
 
   useEffect(() => {
@@ -143,77 +359,105 @@ export default function Home() {
     );
   }, [normalizedSelectedForGraph]);
 
-  async function runSearch(nextQuery?: string) {
-    const query = (nextQuery ?? queryInput).trim();
-    if (!query) {
-      setErrorMessage("Please enter a research topic to search.");
+  // ── Search ────────────────────────────────────────────────────────────────
+
+  const runSearch = useCallback(
+    async (nextQuery?: string) => {
+      const query = (nextQuery ?? queryInput).trim();
+      if (!query) {
+        setErrorMessage("Please enter a research topic to search.");
+        setHasSearched(true);
+        return;
+      }
+
+      // Cancel any in-flight search.
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setIsLoading(true);
+      setErrorMessage(null);
       setHasSearched(true);
-      return;
-    }
+      setActiveQuery(query);
+      setRankingNote(null);
+      setSynthesisText("");
+      setSynthesisError(null);
+      setIsSynthesizing(false);
+      setIsSynthesisComplete(false);
+      setCopyLabel("Copy");
 
-    setIsLoading(true);
-    setErrorMessage(null);
-    setHasSearched(true);
-    setActiveQuery(query);
-    setSynthesisText("");
-    setSynthesisError(null);
-    setIsSynthesizing(false);
-    setIsSynthesisComplete(false);
-    setCopyLabel("Copy");
+      try {
+        const payload: {
+          query: string;
+          max_results: number;
+          filters: { date_from: string; categories?: string[] };
+        } = {
+          query,
+          max_results: maxResults,
+          filters: { date_from: `${yearFrom}-01-01` },
+        };
 
-    try {
-      const payload: {
-        query: string;
-        max_results: number;
-        filters: { date_from: string; categories?: string[] };
-      } = {
-        query,
-        max_results: maxResults,
-        filters: {
-          date_from: `${yearFrom}-01-01`,
-        },
-      };
+        if (selectedCategories.length > 0) {
+          payload.filters.categories = selectedCategories;
+        }
 
-      if (selectedCategories.length > 0) {
-        payload.filters.categories = selectedCategories;
+        const response = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (!response.ok) {
+          const status = response.status;
+          if (status === 503) {
+            throw new Error(
+              "arXiv is currently unavailable. Please try again in a moment.",
+            );
+          }
+          throw new Error("Search failed. Please try again.");
+        }
+
+        const data = (await response.json()) as SearchResponse;
+        if (controller.signal.aborted) return;
+
+        setResults(data.results ?? []);
+        setRankingNote(data.ranking_note ?? null);
+        setExpandedAbstracts({});
+        setSummaryById({});
+      } catch (error) {
+        if ((error as Error)?.name === "AbortError") return;
+        setResults([]);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while searching. Please retry.",
+        );
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [queryInput, maxResults, yearFrom, selectedCategories],
+  );
 
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error("Search failed. Please try again in a moment.");
-      }
-
-      const data = (await response.json()) as SearchResponse;
-      setResults(data.results ?? []);
-      setExpandedAbstracts({});
-      setSummaryById({});
-    } catch (error) {
-      setResults([]);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong while searching. Please retry.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  // ── Synthesis ─────────────────────────────────────────────────────────────
 
   async function generateSynthesis() {
     const synthesisQuery = activeQuery.trim();
     const topArxivIds = results.slice(0, 5).map((paper) => paper.arxiv_id);
+    const topPapers = results.slice(0, 5);
 
     if (!synthesisQuery || topArxivIds.length === 0) {
-      setSynthesisError(
-        "Run a search with results before generating synthesis.",
-      );
+      setSynthesisError("Run a search with results before generating synthesis.");
       return;
     }
+
+    // Cancel previous synthesis if running.
+    synthesisAbortRef.current?.abort();
+    const controller = new AbortController();
+    synthesisAbortRef.current = controller;
 
     setSynthesisText("");
     setSynthesisError(null);
@@ -228,8 +472,13 @@ export default function Home() {
         body: JSON.stringify({
           query: synthesisQuery,
           arxiv_ids: topArxivIds,
+          // Pass paper data to avoid re-fetching from arXiv in the backend.
+          papers: topPapers,
         }),
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted) return;
 
       if (!response.ok) {
         throw new Error("Could not generate synthesis right now.");
@@ -245,9 +494,11 @@ export default function Home() {
 
       while (true) {
         const { value, done } = await reader.read();
-        if (done) {
-          break;
+        if (controller.signal.aborted) {
+          reader.cancel();
+          return;
         }
+        if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -265,9 +516,7 @@ export default function Home() {
               eventType = line.slice(6).trim();
             } else if (line.startsWith("data:")) {
               const content = line.slice(5);
-              dataLines.push(
-                content.startsWith(" ") ? content.slice(1) : content,
-              );
+              dataLines.push(content.startsWith(" ") ? content.slice(1) : content);
             }
           }
 
@@ -293,6 +542,7 @@ export default function Home() {
 
       setIsSynthesisComplete(true);
     } catch (error) {
+      if ((error as Error)?.name === "AbortError") return;
       setSynthesisError(
         error instanceof Error ? error.message : "Synthesis unavailable.",
       );
@@ -301,24 +551,33 @@ export default function Home() {
     }
   }
 
-  async function copySynthesis() {
-    if (!synthesisText) {
-      return;
-    }
+  function cancelSynthesis() {
+    synthesisAbortRef.current?.abort();
+    setIsSynthesizing(false);
+  }
 
+  async function copySynthesis() {
+    if (!synthesisText) return;
     try {
       await navigator.clipboard.writeText(synthesisText);
-      setCopyLabel("Copied");
-      window.setTimeout(() => setCopyLabel("Copy"), 1200);
+      setCopyLabel("Copied!");
+      window.setTimeout(() => setCopyLabel("Copy"), 1500);
     } catch {
       setCopyLabel("Copy failed");
-      window.setTimeout(() => setCopyLabel("Copy"), 1200);
+      window.setTimeout(() => setCopyLabel("Copy"), 1500);
     }
   }
+
+  // ── Event handlers ────────────────────────────────────────────────────────
 
   async function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await runSearch();
+  }
+
+  function handleExampleClick(example: string) {
+    setQueryInput(example);
+    // Fill input but don't auto-submit — user may want to adjust filters first.
   }
 
   function toggleCategory(category: string) {
@@ -329,6 +588,12 @@ export default function Home() {
     );
   }
 
+  function resetFilters() {
+    setYearFrom(MIN_YEAR);
+    setSelectedCategories([]);
+    setMaxResults(10);
+  }
+
   function toggleAbstract(arxivId: string) {
     setExpandedAbstracts((current) => ({
       ...current,
@@ -337,49 +602,57 @@ export default function Home() {
   }
 
   function toggleGraphSelection(arxivId: string) {
-    setSelectedForGraph((current) => {
-      if (current.includes(arxivId)) {
-        return current.filter((id) => id !== arxivId);
+    setSelectedForGraph((current) =>
+      current.includes(arxivId)
+        ? current.filter((id) => id !== arxivId)
+        : [...current, arxivId],
+    );
+  }
+
+  function toggleSavedPaper(paper: PaperResult) {
+    setReadingList((current) => {
+      let updated: ReadingListEntry[];
+      if (current.some((e) => e.arxiv_id === paper.arxiv_id)) {
+        updated = current.filter((e) => e.arxiv_id !== paper.arxiv_id);
+      } else {
+        updated = [
+          ...current,
+          {
+            arxiv_id: paper.arxiv_id,
+            title: paper.title,
+            authors: paper.authors,
+            published: paper.published,
+            pdf_url: paper.pdf_url,
+            entry_url: paper.entry_url,
+            savedAt: new Date().toISOString(),
+          },
+        ];
       }
-      return [...current, arxivId];
+      saveReadingList(updated);
+      return updated;
     });
   }
 
   async function summarizePaper(arxivId: string) {
     setSummaryById((current) => ({
       ...current,
-      [arxivId]: {
-        ...current[arxivId],
-        open: true,
-        loading: true,
-        error: undefined,
-      },
+      [arxivId]: { ...current[arxivId], open: true, loading: true, error: undefined },
     }));
 
     try {
       const response = await fetch(
         `/api/papers/${encodeURIComponent(arxivId)}/summarize`,
-        {
-          method: "POST",
-        },
+        { method: "POST" },
       );
 
       if (!response.ok) {
         throw new Error("Summary unavailable right now.");
       }
 
-      const data = (await response.json()) as {
-        arxiv_id: string;
-        summary: string;
-      };
+      const data = (await response.json()) as { arxiv_id: string; summary: string };
       setSummaryById((current) => ({
         ...current,
-        [arxivId]: {
-          loading: false,
-          open: true,
-          summary: data.summary,
-          error: undefined,
-        },
+        [arxivId]: { loading: false, open: true, summary: data.summary, error: undefined },
       }));
     } catch (error) {
       setSummaryById((current) => ({
@@ -388,94 +661,307 @@ export default function Home() {
           loading: false,
           open: true,
           summary: undefined,
-          error:
-            error instanceof Error ? error.message : "Summary unavailable.",
+          error: error instanceof Error ? error.message : "Summary unavailable.",
         },
       }));
     }
   }
 
+  // ── Derived state ─────────────────────────────────────────────────────────
+
   const showEmptyPrompt = !hasSearched && !isLoading && !errorMessage;
-  const showNoResults =
-    !isLoading && !errorMessage && hasSearched && results.length === 0;
+  const showNoResults = !isLoading && !errorMessage && hasSearched && results.length === 0;
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 selection:bg-cyan-400/25">
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Scholytics
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Semantic paper discovery, synthesis, and graph exploration.
-            </p>
-          </div>
-          <Link
-            href={graphHref}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+    <>
+      {/* Reading list overlay */}
+      {showReadingList && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            style={{ backgroundColor: "rgba(5,13,26,0.7)" }}
+            onClick={() => setShowReadingList(false)}
+            aria-hidden="true"
+          />
+          <ReadingListPanel
+            list={readingList}
+            onRemove={(id) => {
+              setReadingList((current) => {
+                const updated = current.filter((e) => e.arxiv_id !== id);
+                saveReadingList(updated);
+                return updated;
+              });
+            }}
+            onClear={() => {
+              setReadingList([]);
+              saveReadingList([]);
+            }}
+            onClose={() => setShowReadingList(false)}
+          />
+        </>
+      )}
+
+      <main
+        className="min-h-screen"
+        style={{ backgroundColor: "var(--bg-page)", color: "var(--text-primary)" }}
+      >
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+
+          {/* ── Header ──────────────────────────────────────────────────── */}
+          <header
+            className="mb-10 flex flex-wrap items-center justify-between gap-3 rounded-[18px] p-4"
+            style={{
+              border: "1px solid var(--border-default)",
+              backgroundColor: "var(--bg-surface)",
+            }}
           >
-            <span>Graph</span>
-            <span className="rounded-full bg-slate-950/10 px-2 py-0.5 text-xs">
-              {selectedGraphCount}
-            </span>
-          </Link>
-        </header>
-
-        <section className="mx-auto max-w-4xl text-center">
-          <h2 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-            Search Research Faster
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-400 sm:text-lg">
-            Explore live arXiv results, generate concise summaries, and build
-            topic-level insights in one workflow.
-          </p>
-
-          <form onSubmit={handleSearchSubmit} className="mt-8">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                value={queryInput}
-                onChange={(event) => setQueryInput(event.target.value)}
-                placeholder="Search arXiv topics, methods, or questions"
-                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 text-base text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
-              />
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="h-12 rounded-xl bg-cyan-400 px-6 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-xl"
+                style={{ backgroundColor: "var(--cyan-subtle)", border: "1px solid rgba(6,182,212,0.3)" }}
+                aria-hidden="true"
               >
-                {isLoading ? "Searching..." : "Search"}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section className="mx-auto mt-8 w-full max-w-5xl">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/75 p-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <span style={{ color: "var(--text-accent)", fontSize: "1.1rem" }}>⬡</span>
+              </div>
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">
+                <h1
+                  className="text-xl font-bold tracking-tight sm:text-2xl"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Scholytics
+                </h1>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  Semantic paper discovery &amp; synthesis
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Reading list button */}
+              <button
+                type="button"
+                onClick={() => setShowReadingList(true)}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:opacity-80"
+                style={{
+                  border: "1px solid var(--border-default)",
+                  backgroundColor: "var(--bg-elevated)",
+                  color: "var(--text-secondary)",
+                }}
+                aria-label={`Reading list (${readingList.length} saved)`}
+              >
+                <span aria-hidden="true">📚</span>
+                <span className="hidden sm:inline">Saved</span>
+                {readingList.length > 0 && (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                    style={{
+                      backgroundColor: "var(--cyan-subtle)",
+                      color: "var(--text-accent)",
+                    }}
+                  >
+                    {readingList.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Graph button */}
+              <Link
+                href={graphHref}
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--cyan-primary)",
+                  color: "var(--cyan-text)",
+                }}
+                aria-label={`Open research graph (${selectedGraphCount} papers selected)`}
+              >
+                <span aria-hidden="true">◈</span>
+                <span>Graph</span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-xs font-bold"
+                  style={{ backgroundColor: "rgba(0,0,0,0.2)", color: "inherit" }}
+                >
+                  {selectedGraphCount}
+                </span>
+              </Link>
+            </div>
+          </header>
+
+          {/* ── Hero + Search ────────────────────────────────────────────── */}
+          <section className="mx-auto max-w-4xl text-center">
+            <h2
+              className="text-4xl font-extrabold tracking-tight sm:text-5xl"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Discover Research{" "}
+              <span style={{ color: "var(--text-accent)" }}>Faster</span>
+            </h2>
+            <p
+              className="mx-auto mt-4 max-w-2xl text-base sm:text-lg"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Search live arXiv papers, generate summaries, synthesize topics, and
+              explore paper relationships — all in one workflow.
+            </p>
+
+            {/* Example queries */}
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {EXAMPLE_QUERIES.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => handleExampleClick(example)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
+                  style={{
+                    border: "1px solid var(--border-default)",
+                    backgroundColor: "var(--bg-elevated)",
+                    color: "var(--text-secondary)",
+                  }}
+                  aria-label={`Fill search with: ${example}`}
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+
+            {/* Search form */}
+            <form onSubmit={handleSearchSubmit} className="mt-6" role="search">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <label htmlFor="search-input" className="sr-only">
+                  Search arXiv research papers
+                </label>
+                <input
+                  id="search-input"
+                  value={queryInput}
+                  onChange={(event) => setQueryInput(event.target.value)}
+                  placeholder="Search arXiv topics, methods, or questions…"
+                  maxLength={400}
+                  autoComplete="off"
+                  className="h-12 w-full flex-1 rounded-xl px-4 text-base transition-all"
+                  style={{
+                    border: "1px solid var(--border-default)",
+                    backgroundColor: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-focus)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-cyan)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-default)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="h-12 rounded-xl px-7 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    backgroundColor: "var(--cyan-primary)",
+                    color: "var(--cyan-text)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isLoading)
+                      e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
+                  }}
+                >
+                  {isLoading ? "Searching…" : "Search"}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          {/* ── Filters ──────────────────────────────────────────────────── */}
+          <section
+            className="mx-auto mt-6 w-full max-w-5xl rounded-[18px] p-5"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              backgroundColor: "var(--bg-surface)",
+            }}
+            aria-label="Search filters"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p
+                className="text-xs font-semibold uppercase tracking-widest"
+                style={{ color: "var(--text-accent-dim)" }}
+              >
+                Filters
+                {activeFilterCount > 0 && (
+                  <span
+                    className="ml-2 rounded-full px-2 py-0.5 text-xs normal-case"
+                    style={{
+                      backgroundColor: "var(--cyan-subtle)",
+                      color: "var(--text-accent)",
+                    }}
+                    aria-label={`${activeFilterCount} active filters`}
+                  >
+                    {activeFilterCount} active
+                  </span>
+                )}
+              </p>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-xs transition-colors hover:opacity-80"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Reset filters
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              {/* Year range */}
+              <div>
+                <p
+                  className="mb-2 text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Year Range
                 </p>
-                <div className="mb-3 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-300">
-                  <span>From: {yearFrom}</span>
-                  <span>To: {CURRENT_YEAR}</span>
+                <div
+                  className="mb-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm"
+                  style={{
+                    border: "1px solid var(--border-subtle)",
+                    backgroundColor: "var(--bg-elevated)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  <span>From: <strong style={{ color: "var(--text-primary)" }}>{yearFrom}</strong></span>
+                  <span>To: <strong style={{ color: "var(--text-primary)" }}>{CURRENT_YEAR}</strong></span>
                 </div>
+                <label htmlFor="year-range" className="sr-only">
+                  Show papers from year {yearFrom} to {CURRENT_YEAR}
+                </label>
                 <input
+                  id="year-range"
                   type="range"
-                  min={2015}
+                  min={MIN_YEAR}
                   max={CURRENT_YEAR}
                   value={yearFrom}
                   onChange={(event) => setYearFrom(Number(event.target.value))}
-                  className="w-full accent-cyan-400"
+                  className="w-full"
+                  aria-valuemin={MIN_YEAR}
+                  aria-valuemax={CURRENT_YEAR}
+                  aria-valuenow={yearFrom}
                 />
               </div>
 
+              {/* Categories */}
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">
+                <p
+                  className="mb-2 text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Categories
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Research category filters">
                   {AVAILABLE_CATEGORIES.map((category) => {
                     const active = selectedCategories.includes(category);
                     return (
@@ -483,11 +969,18 @@ export default function Home() {
                         key={category}
                         type="button"
                         onClick={() => toggleCategory(category)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                          active
-                            ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-300"
-                            : "border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500"
-                        }`}
+                        className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+                        style={{
+                          border: active
+                            ? "1px solid rgba(6,182,212,0.5)"
+                            : "1px solid var(--border-subtle)",
+                          backgroundColor: active
+                            ? "var(--cyan-subtle)"
+                            : "var(--bg-elevated)",
+                          color: active ? "var(--text-accent)" : "var(--text-secondary)",
+                        }}
+                        aria-pressed={active}
+                        aria-label={`${active ? "Remove" : "Add"} ${category} filter`}
                       >
                         {category}
                       </button>
@@ -496,254 +989,576 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Result count */}
               <div>
                 <label
                   htmlFor="result-count"
-                  className="mb-3 block text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300"
+                  className="mb-2 block text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
                 >
                   Result Count
                 </label>
                 <select
                   id="result-count"
                   value={maxResults}
-                  onChange={(event) =>
-                    setMaxResults(Number(event.target.value))
-                  }
-                  className="h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+                  onChange={(event) => setMaxResults(Number(event.target.value))}
+                  className="h-10 w-full rounded-lg px-3 text-sm transition-all"
+                  style={{
+                    border: "1px solid var(--border-default)",
+                    backgroundColor: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-focus)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-default)";
+                  }}
                 >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
+                  <option value={5}>5 papers</option>
+                  <option value={10}>10 papers</option>
+                  <option value={25}>25 papers</option>
                 </select>
-                <p className="mt-2 text-xs text-slate-400">
-                  Added to graph:{" "}
-                  <span className="font-semibold text-cyan-300">
+                <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                  Graph selection:{" "}
+                  <span style={{ color: "var(--text-accent)" }} aria-live="polite">
                     {selectedGraphCount}
                   </span>
                 </p>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="mx-auto mt-10 w-full max-w-6xl">
-          {showEmptyPrompt && (
-            <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
-              <div>
-                <p className="text-3xl font-semibold text-white">
-                  Search for any research topic
+          {/* ── Results area ─────────────────────────────────────────────── */}
+          <section className="mx-auto mt-8 w-full max-w-6xl" aria-label="Search results" aria-live="polite">
+
+            {/* Ranking degraded note */}
+            {rankingNote && !isLoading && (
+              <div
+                className="mb-4 rounded-xl px-4 py-3 text-sm"
+                style={{
+                  border: "1px solid rgba(245,158,11,0.3)",
+                  backgroundColor: "rgba(245,158,11,0.07)",
+                  color: "#fbbf24",
+                }}
+                role="alert"
+              >
+                ⚠ {rankingNote}
+              </div>
+            )}
+
+            {/* Empty prompt */}
+            {showEmptyPrompt && (
+              <div
+                className="grid min-h-72 place-items-center rounded-[18px] p-10 text-center"
+                style={{
+                  border: "1px dashed var(--border-subtle)",
+                  backgroundColor: "var(--bg-surface)",
+                }}
+              >
+                <div>
+                  <div
+                    className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl"
+                    style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}
+                    aria-hidden="true"
+                  >
+                    🔭
+                  </div>
+                  <p className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+                    Search for any research topic
+                  </p>
+                  <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    Try one of the example queries above, or type your own question.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Loading skeletons */}
+            {isLoading && <SkeletonCards />}
+
+            {/* Error state */}
+            {!isLoading && errorMessage && (
+              <div
+                className="mx-auto max-w-3xl rounded-[18px] p-6 text-center"
+                style={{
+                  border: "1px solid var(--error-border)",
+                  backgroundColor: "var(--error-bg)",
+                }}
+                role="alert"
+              >
+                <p className="mb-4 text-sm" style={{ color: "#fda4af" }}>
+                  {errorMessage}
                 </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Start with a concept, method, or research question.
+                <button
+                  type="button"
+                  onClick={() => runSearch(activeQuery || queryInput)}
+                  className="rounded-lg px-5 py-2 text-sm font-semibold transition-colors hover:opacity-80"
+                  style={{ backgroundColor: "var(--error)", color: "#fff0f3" }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* No results */}
+            {showNoResults && (
+              <div
+                className="mx-auto max-w-3xl rounded-[18px] p-8 text-center"
+                style={{
+                  border: "1px solid var(--border-subtle)",
+                  backgroundColor: "var(--bg-surface)",
+                }}
+                role="status"
+              >
+                <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+                  No papers found
+                </p>
+                <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Try broadening your query, reducing the year filter, or removing category filters.
                 </p>
               </div>
-            </div>
-          )}
+            )}
 
-          {isLoading && <SkeletonCards />}
+            {/* Results */}
+            {!isLoading && !errorMessage && results.length > 0 && (
+              <div className="space-y-6">
 
-          {!isLoading && errorMessage && (
-            <div className="mx-auto max-w-3xl rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-center">
-              <p className="mb-3 text-base text-rose-100">{errorMessage}</p>
-              <button
-                type="button"
-                onClick={() => runSearch(activeQuery || queryInput)}
-                className="rounded-lg bg-rose-400 px-5 py-2 text-sm font-semibold text-rose-950 transition hover:bg-rose-300"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {showNoResults && (
-            <div className="mx-auto max-w-3xl rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-200">
-              No papers found. Try broadening your query or adjusting filters.
-            </div>
-          )}
-
-          {!isLoading && !errorMessage && results.length > 0 && (
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-2xl font-semibold text-white">
-                    What does research say about {activeQuery}?
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={generateSynthesis}
-                    disabled={isSynthesizing}
-                    className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSynthesizing ? "Generating..." : "Generate Synthesis"}
-                  </button>
-                </div>
-
-                {synthesisError && (
-                  <p className="mb-3 text-sm text-rose-300">{synthesisError}</p>
-                )}
-
-                {(synthesisText || isSynthesizing) && (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                    <div className="prose prose-invert max-w-none text-sm leading-7 text-slate-200">
-                      <ReactMarkdown>{synthesisText}</ReactMarkdown>
+                {/* Synthesis panel */}
+                <div
+                  className="rounded-[18px] p-6"
+                  style={{
+                    border: "1px solid var(--border-default)",
+                    backgroundColor: "var(--bg-surface)",
+                  }}
+                >
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3
+                        className="text-lg font-semibold sm:text-xl"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        What does research say about{" "}
+                        <em style={{ color: "var(--text-accent)", fontStyle: "normal" }}>
+                          {activeQuery}
+                        </em>
+                        ?
+                      </h3>
+                      <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                        Synthesises the top {Math.min(results.length, 5)} results using Groq · abstract-based only
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
                       {isSynthesizing && (
-                        <span className="ml-1 inline-block h-5 w-2 animate-pulse rounded-sm bg-cyan-300 align-middle" />
+                        <button
+                          type="button"
+                          onClick={cancelSynthesis}
+                          className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-80"
+                          style={{
+                            border: "1px solid var(--border-default)",
+                            backgroundColor: "var(--bg-elevated)",
+                            color: "var(--text-secondary)",
+                          }}
+                        >
+                          Cancel
+                        </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={generateSynthesis}
+                        disabled={isSynthesizing}
+                        className="rounded-xl px-4 py-2 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{
+                          backgroundColor: "var(--cyan-primary)",
+                          color: "var(--cyan-text)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSynthesizing)
+                            e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
+                        }}
+                        aria-label={isSynthesizing ? "Generating synthesis…" : "Generate topic synthesis"}
+                      >
+                        {isSynthesizing ? "Generating…" : "Generate Synthesis"}
+                      </button>
                     </div>
                   </div>
-                )}
 
-                {isSynthesisComplete && synthesisText && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={copySynthesis}
-                      className="rounded-lg border border-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800"
+                  {synthesisError && (
+                    <div
+                      className="mb-3 rounded-lg px-4 py-3 text-sm"
+                      style={{
+                        border: "1px solid var(--error-border)",
+                        backgroundColor: "var(--error-bg)",
+                        color: "#fda4af",
+                      }}
+                      role="alert"
                     >
-                      {copyLabel}
-                    </button>
-                  </div>
-                )}
-              </div>
+                      {synthesisError}
+                    </div>
+                  )}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {results.map((paper) => {
-                  const score = clampScore(paper.relevance_score);
-                  const summaryState = summaryById[paper.arxiv_id];
-                  const abstractExpanded = !!expandedAbstracts[paper.arxiv_id];
-                  const inGraph = normalizedSelectedForGraph.includes(
-                    paper.arxiv_id,
-                  );
-
-                  return (
-                    <article
-                      key={paper.arxiv_id}
-                      className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"
+                  {(synthesisText || isSynthesizing) && (
+                    <div
+                      className="rounded-xl p-4"
+                      style={{
+                        border: "1px solid var(--border-subtle)",
+                        backgroundColor: "var(--bg-page)",
+                      }}
                     >
-                      <h4 className="mb-2 line-clamp-2 text-lg font-semibold text-white">
-                        {paper.title}
-                      </h4>
-
-                      <p className="mb-1 text-sm text-slate-300">
-                        {paper.authors.join(", ") || "Unknown authors"}
-                      </p>
-                      <p className="mb-3 text-xs text-slate-400">
-                        Published: {formatDate(paper.published)}
-                      </p>
-
-                      <div className="mb-3 flex flex-wrap gap-2">
-                        {paper.categories.slice(0, 4).map((category) => (
+                      <div className="synthesis-prose text-sm">
+                        <ReactMarkdown>{synthesisText}</ReactMarkdown>
+                        {isSynthesizing && (
                           <span
-                            key={`${paper.arxiv_id}-${category}`}
-                            className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-                          >
-                            {category}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="mb-3">
-                        <div className="mb-1 flex items-center justify-between text-xs">
-                          <span className="text-slate-400">Relevance</span>
-                          <span className="font-medium text-cyan-300">
-                            {(score * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="h-2 rounded-full bg-slate-800">
-                          <div
-                            className="h-2 rounded-full bg-cyan-400 transition-all"
-                            style={{ width: `${(score * 100).toFixed(1)}%` }}
+                            className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-sm align-middle"
+                            style={{ backgroundColor: "var(--text-accent)" }}
+                            aria-label="Generating…"
                           />
-                        </div>
+                        )}
                       </div>
+                    </div>
+                  )}
 
-                      <div className="mb-3 text-sm text-slate-300">
+                  {isSynthesisComplete && synthesisText && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        ⚠ Generated from abstracts only — verify claims in original papers.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={copySynthesis}
+                        className="ml-auto rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
+                        style={{
+                          border: "1px solid var(--border-default)",
+                          backgroundColor: "var(--bg-elevated)",
+                          color: "var(--text-secondary)",
+                        }}
+                        aria-label="Copy synthesis to clipboard"
+                      >
+                        {copyLabel}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Result count + graph prompt */}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                    <span
+                      className="font-semibold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {results.length}
+                    </span>{" "}
+                    papers · ranked by cosine similarity to query
+                  </p>
+                  {selectedGraphCount > 0 && (
+                    <Link
+                      href={graphHref}
+                      className="rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80"
+                      style={{
+                        backgroundColor: "var(--cyan-subtle)",
+                        color: "var(--text-accent)",
+                        border: "1px solid rgba(6,182,212,0.3)",
+                      }}
+                    >
+                      Open graph ({selectedGraphCount}) →
+                    </Link>
+                  )}
+                </div>
+
+                {/* Paper cards */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {results.map((paper) => {
+                    const score = clampScore(paper.relevance_score);
+                    const summaryState = summaryById[paper.arxiv_id];
+                    const abstractExpanded = !!expandedAbstracts[paper.arxiv_id];
+                    const inGraph = normalizedSelectedForGraph.includes(paper.arxiv_id);
+                    const isSaved = savedIds.has(paper.arxiv_id);
+
+                    return (
+                      <article
+                        key={paper.arxiv_id}
+                        className="flex flex-col rounded-[18px] p-5 transition-all"
+                        style={{
+                          border: inGraph
+                            ? "1px solid rgba(6,182,212,0.4)"
+                            : "1px solid var(--border-subtle)",
+                          backgroundColor: "var(--bg-surface)",
+                        }}
+                        aria-label={`Paper: ${paper.title}`}
+                      >
+                        {/* Title */}
+                        <h4
+                          className="mb-2 line-clamp-2 text-base font-semibold leading-snug"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {paper.title}
+                        </h4>
+
+                        {/* Authors */}
                         <p
-                          className={
-                            abstractExpanded
-                              ? "leading-6"
-                              : "overflow-hidden leading-6 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]"
-                          }
+                          className="mb-1 line-clamp-1 text-xs"
+                          style={{ color: "var(--text-secondary)" }}
                         >
-                          {paper.abstract}
+                          {paper.authors.slice(0, 4).join(", ") ||
+                            "Unknown authors"}
+                          {paper.authors.length > 4 &&
+                            ` +${paper.authors.length - 4} more`}
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => toggleAbstract(paper.arxiv_id)}
-                          className="mt-1 text-xs font-medium text-cyan-300 hover:text-cyan-200"
-                        >
-                          {abstractExpanded ? "Show less" : "Read more"}
-                        </button>
-                      </div>
 
-                      <div className="mb-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => summarizePaper(paper.arxiv_id)}
-                          disabled={summaryState?.loading}
-                          className="rounded-lg bg-cyan-400 px-3 py-1.5 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {summaryState?.loading
-                            ? "Summarizing..."
-                            : "Summarize"}
-                        </button>
+                        {/* Date + ID */}
+                        <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
+                          {formatDate(paper.published)} ·{" "}
+                          <a
+                            href={paper.entry_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="transition-colors hover:opacity-80"
+                            style={{ color: "var(--text-accent-dim)" }}
+                            aria-label={`arXiv abstract for ${paper.arxiv_id}`}
+                          >
+                            {paper.arxiv_id}
+                          </a>
+                        </p>
 
-                        <button
-                          type="button"
-                          onClick={() => toggleGraphSelection(paper.arxiv_id)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                            inGraph
-                              ? "bg-emerald-300 text-emerald-950 hover:bg-emerald-200"
-                              : "border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
-                          }`}
-                        >
-                          {inGraph ? "Added to Graph" : "Add to Graph"}
-                        </button>
-
-                        <a
-                          href={paper.pdf_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800"
-                        >
-                          PDF
-                        </a>
-                      </div>
-
-                      {summaryState?.open && (
-                        <div className="rounded-xl border border-cyan-400/25 bg-slate-950 p-3">
-                          {summaryState.loading && (
-                            <p className="text-sm text-cyan-200">
-                              Generating summary...
-                            </p>
-                          )}
-                          {!summaryState.loading && summaryState.error && (
-                            <p className="text-sm text-rose-300">
-                              {summaryState.error}
-                            </p>
-                          )}
-                          {!summaryState.loading &&
-                            !summaryState.error &&
-                            summaryState.summary && (
-                              <div className="space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
-                                  Summary
-                                </p>
-                                <p className="text-sm leading-6 text-slate-200">
-                                  {summaryState.summary}
-                                </p>
-                              </div>
-                            )}
+                        {/* Categories */}
+                        <div className="mb-3 flex flex-wrap gap-1.5">
+                          {paper.categories.slice(0, 4).map((category) => (
+                            <span
+                              key={`${paper.arxiv_id}-${category}`}
+                              className="rounded-full px-2 py-0.5 text-xs"
+                              style={{
+                                border: "1px solid var(--border-subtle)",
+                                backgroundColor: "var(--bg-elevated)",
+                                color: "var(--text-secondary)",
+                              }}
+                            >
+                              {category}
+                            </span>
+                          ))}
                         </div>
-                      )}
-                    </article>
-                  );
-                })}
+
+                        {/* Relevance bar */}
+                        {paper.relevance_score !== null && !paper.ranking_degraded && (
+                          <div className="mb-3">
+                            <div
+                              className="mb-1 flex items-center justify-between text-xs"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              <span>Cosine similarity</span>
+                              <span
+                                className="font-mono font-semibold"
+                                style={{ color: "var(--text-accent)" }}
+                              >
+                                {(score * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                            <div
+                              className="h-1.5 overflow-hidden rounded-full"
+                              style={{ backgroundColor: "var(--bg-elevated)" }}
+                              role="meter"
+                              aria-label={`Relevance: ${(score * 100).toFixed(1)}%`}
+                              aria-valuenow={Math.round(score * 100)}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                            >
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${(score * 100).toFixed(1)}%`,
+                                  background: `linear-gradient(90deg, var(--cyan-dim), var(--cyan-primary))`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Abstract */}
+                        <div className="mb-3 flex-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                          <p
+                            className={
+                              abstractExpanded
+                                ? "leading-6"
+                                : "line-clamp-3 leading-6"
+                            }
+                          >
+                            {paper.abstract}
+                          </p>
+                          {paper.abstract.length > 200 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleAbstract(paper.arxiv_id)}
+                              className="mt-1 text-xs font-medium transition-colors hover:opacity-80"
+                              style={{ color: "var(--text-accent)" }}
+                              aria-expanded={abstractExpanded}
+                              aria-controls={`abstract-${paper.arxiv_id}`}
+                            >
+                              {abstractExpanded ? "Show less" : "Read more"}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => summarizePaper(paper.arxiv_id)}
+                            disabled={summaryState?.loading}
+                            className="rounded-lg px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                            style={{
+                              backgroundColor: "var(--cyan-primary)",
+                              color: "var(--cyan-text)",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!summaryState?.loading)
+                                e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
+                            }}
+                            aria-label={
+                              summaryState?.loading
+                                ? "Generating summary…"
+                                : `Summarize: ${paper.title}`
+                            }
+                          >
+                            {summaryState?.loading ? "Summarizing…" : "Summarize"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleGraphSelection(paper.arxiv_id)}
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={
+                              inGraph
+                                ? {
+                                    backgroundColor: "rgba(16,185,129,0.12)",
+                                    border: "1px solid rgba(16,185,129,0.4)",
+                                    color: "#34d399",
+                                  }
+                                : {
+                                    border: "1px solid var(--border-subtle)",
+                                    backgroundColor: "var(--bg-elevated)",
+                                    color: "var(--text-secondary)",
+                                  }
+                            }
+                            aria-pressed={inGraph}
+                            aria-label={
+                              inGraph
+                                ? `Remove ${paper.title} from graph`
+                                : `Add ${paper.title} to graph`
+                            }
+                          >
+                            {inGraph ? "✓ In Graph" : "Add to Graph"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleSavedPaper(paper)}
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={
+                              isSaved
+                                ? {
+                                    backgroundColor: "rgba(245,158,11,0.1)",
+                                    border: "1px solid rgba(245,158,11,0.35)",
+                                    color: "#fbbf24",
+                                  }
+                                : {
+                                    border: "1px solid var(--border-subtle)",
+                                    backgroundColor: "var(--bg-elevated)",
+                                    color: "var(--text-secondary)",
+                                  }
+                            }
+                            aria-pressed={isSaved}
+                            aria-label={
+                              isSaved
+                                ? `Remove ${paper.title} from reading list`
+                                : `Save ${paper.title} to reading list`
+                            }
+                          >
+                            {isSaved ? "★ Saved" : "Save"}
+                          </button>
+
+                          <a
+                            href={paper.pdf_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
+                            style={{
+                              border: "1px solid var(--border-subtle)",
+                              backgroundColor: "var(--bg-elevated)",
+                              color: "var(--text-secondary)",
+                            }}
+                            aria-label={`Open PDF for: ${paper.title}`}
+                          >
+                            PDF ↗
+                          </a>
+                        </div>
+
+                        {/* Summary panel */}
+                        {summaryState?.open && (
+                          <div
+                            className="mt-3 rounded-xl p-3"
+                            style={{
+                              border: "1px solid rgba(6,182,212,0.2)",
+                              backgroundColor: "var(--bg-page)",
+                            }}
+                            role="region"
+                            aria-label={`AI summary for ${paper.title}`}
+                          >
+                            {summaryState.loading && (
+                              <p
+                                className="text-xs"
+                                style={{ color: "var(--text-accent)" }}
+                                aria-live="polite"
+                              >
+                                Generating summary…
+                              </p>
+                            )}
+                            {!summaryState.loading && summaryState.error && (
+                              <p className="text-xs" style={{ color: "#fda4af" }} role="alert">
+                                {summaryState.error}
+                              </p>
+                            )}
+                            {!summaryState.loading &&
+                              !summaryState.error &&
+                              summaryState.summary && (
+                                <div>
+                                  <p
+                                    className="mb-1.5 text-xs font-bold uppercase tracking-widest"
+                                    style={{ color: "var(--text-accent-dim)" }}
+                                  >
+                                    AI Summary
+                                  </p>
+                                  <p
+                                    className="text-xs leading-6"
+                                    style={{ color: "var(--text-secondary)" }}
+                                  >
+                                    {summaryState.summary}
+                                  </p>
+                                  <p
+                                    className="mt-2 text-xs"
+                                    style={{ color: "var(--text-muted)" }}
+                                  >
+                                    ⚠ Based on abstract only — not the full paper.
+                                  </p>
+                                </div>
+                              )}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </section>
-      </div>
-    </main>
+            )}
+          </section>
+        </div>
+      </main>
+    </>
   );
 }

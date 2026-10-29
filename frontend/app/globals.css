@@ -1,26 +1,176 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Design Tokens — Scholytics
+   Dark navy/cyan identity. All colors flow from these variables.
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-page: #050d1a;
+  --bg-surface: #0b1628;
+  --bg-elevated: #0f1e35;
+  --bg-input: #091424;
+  --bg-hover: #132240;
+
+  /* Borders */
+  --border-subtle: #1a2e4a;
+  --border-default: #1e3a5f;
+  --border-accent: #0891b2;
+  --border-focus: #06b6d4;
+
+  /* Text */
+  --text-primary: #e8f0fe;
+  --text-secondary: #94a3b8;
+  --text-muted: #4b6a8a;
+  --text-accent: #22d3ee;
+  --text-accent-dim: #0891b2;
+
+  /* Brand cyan */
+  --cyan-primary: #06b6d4;
+  --cyan-hover: #22d3ee;
+  --cyan-dim: #0891b2;
+  --cyan-subtle: rgba(6, 182, 212, 0.12);
+  --cyan-text: #0a0f18;
+
+  /* Status */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #f43f5e;
+  --error-bg: rgba(244, 63, 94, 0.08);
+  --error-border: rgba(244, 63, 94, 0.35);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-cyan: 0 0 0 3px rgba(6, 182, 212, 0.25);
+
+  /* Typography */
+  --font-sans: var(--font-geist-sans), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Roboto Mono", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ============================================================
+   Base reset
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Focus — visible ring, not just outline
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Selection
+   ============================================================ */
+::selection {
+  background: rgba(6, 182, 212, 0.2);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   Custom scrollbar (subtle, dark)
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-page);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-accent);
+}
+
+/* ============================================================
+   Range input — cyan accent
+   ============================================================ */
+input[type="range"] {
+  accent-color: var(--cyan-primary);
+}
+
+/* ============================================================
+   Reduced motion — respect prefers-reduced-motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   Prose overrides for react-markdown in synthesis output
+   ============================================================ */
+.synthesis-prose p {
+  margin-bottom: 0.85em;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+
+.synthesis-prose h1,
+.synthesis-prose h2,
+.synthesis-prose h3 {
+  color: var(--text-accent);
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.synthesis-prose ul,
+.synthesis-prose ol {
+  padding-left: 1.25em;
+  margin-bottom: 0.75em;
+}
+
+.synthesis-prose li {
+  margin-bottom: 0.3em;
+}
+
+.synthesis-prose strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.synthesis-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.4em;
 }

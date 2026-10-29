@@ -1,20 +1,30 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import os
 import re
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 try:
 	from fastembed import TextEmbedding
-except Exception:
+except Exception:  # noqa: BLE001
 	TextEmbedding = None
 
 _DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _MODEL_NAME = os.getenv("LOCAL_EMBEDDING_MODEL", _DEFAULT_MODEL_NAME).strip() or _DEFAULT_MODEL_NAME
 _HASH_DIM = 384
 _MODEL = None
+
+# Whether to allow the hash-based fallback (only in development/testing).
+# Set USE_HASH_EMBEDDING_FALLBACK=true to opt in explicitly.
+_ALLOW_HASH_FALLBACK = os.getenv("USE_HASH_EMBEDDING_FALLBACK", "false").strip().lower() == "true"
+
+# Tracks whether we are currently in degraded (hash) mode.
+_using_hash_fallback: bool = False
 
 
 def _resolve_model_name() -> str:
@@ -25,11 +35,17 @@ def _resolve_model_name() -> str:
 
 
 def _get_model():
-	global _MODEL
+	global _MODEL, _using_hash_fallback
 	if TextEmbedding is None:
 		return None
 	if _MODEL is None:
-		_MODEL = TextEmbedding(model_name=_resolve_model_name())
+		try:
+			_MODEL = TextEmbedding(model_name=_resolve_model_name())
+			_using_hash_fallback = False
+			logger.info("Embedding model loaded: %s", _resolve_model_name())
+		except Exception as exc:  # noqa: BLE001
+			logger.error("Failed to initialize embedding model %s: %s", _resolve_model_name(), exc)
+			return None
 	return _MODEL
 
 
@@ -49,6 +65,12 @@ def _to_joined_string(value: Any) -> str:
 
 
 def _hash_embed(text: str) -> list[float]:
+	"""
+	Deterministic hashing fallback — NOT semantic embedding.
+	Only available when USE_HASH_EMBEDDING_FALLBACK=true.
+	Results do not reflect semantic similarity and will produce
+	unreliable ranking. Use only for development/offline testing.
+	"""
 	vector = [0.0] * _HASH_DIM
 	tokens = re.findall(r"[A-Za-z0-9_]+", text.lower())
 	for token in tokens:
@@ -62,20 +84,50 @@ def _hash_embed(text: str) -> list[float]:
 	return _normalize(vector)
 
 
+def is_using_hash_fallback() -> bool:
+	"""Return True if we are operating in degraded hash-embedding mode."""
+	return _using_hash_fallback
+
+
 def embed_texts(texts: list[str]) -> list[list[float]]:
+	"""
+	Embed a list of texts using the configured FastEmbed model.
+
+	Raises RuntimeError if the model is unavailable and hash fallback is not enabled.
+	When fallback is enabled, logs a clear warning and returns hash-based vectors.
+	Hash embeddings do NOT provide semantic similarity — rankings will be unreliable.
+	"""
+	global _using_hash_fallback
+
 	if not texts:
 		return []
 
 	if TextEmbedding is not None:
-		try:
-			model = _get_model()
-			if model is not None:
+		model = _get_model()
+		if model is not None:
+			try:
 				embeddings = list(model.embed(texts))
+				_using_hash_fallback = False
 				return [_normalize([float(v) for v in row.tolist()]) for row in embeddings]
-		except Exception:
-			pass
+			except Exception as exc:  # noqa: BLE001
+				logger.error("Embedding generation failed: %s", exc)
 
-	return [_hash_embed(text) for text in texts]
+	# Real model failed or is unavailable.
+	if _ALLOW_HASH_FALLBACK:
+		_using_hash_fallback = True
+		logger.warning(
+			"DEGRADED MODE: Using hash-based embeddings instead of semantic embeddings. "
+			"Search ranking will be unreliable. "
+			"Set USE_HASH_EMBEDDING_FALLBACK=false to disable this fallback."
+		)
+		return [_hash_embed(text) for text in texts]
+
+	# No fallback allowed — surface the error clearly.
+	raise RuntimeError(
+		"Embedding model is unavailable and hash fallback is disabled. "
+		"Ensure the fastembed package is installed and the model can be loaded. "
+		"To allow degraded offline operation set USE_HASH_EMBEDDING_FALLBACK=true."
+	)
 
 
 def index_papers(papers: list[dict], collection) -> int:
