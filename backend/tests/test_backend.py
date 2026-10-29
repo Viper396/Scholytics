@@ -156,6 +156,33 @@ class TestEmbedder:
 			result = embedder_mod.embed_query("test")
 			assert result == [0.1, 0.2]
 
+	def test_warm_up_success(self):
+		with patch.object(embedder_mod, "_get_model", return_value=MagicMock()):
+			assert embedder_mod.warm_up() is True
+
+	def test_warm_up_when_missing_returns_false(self):
+		with patch.object(embedder_mod, "TextEmbedding", None):
+			assert embedder_mod.warm_up() is False
+
+	def test_get_status_ok(self):
+		mock_model = MagicMock()
+		with (
+			patch.object(embedder_mod, "TextEmbedding", MagicMock()),
+			patch.object(embedder_mod, "_MODEL", mock_model),
+			patch.object(embedder_mod, "_INIT_ERROR", None),
+			patch.object(embedder_mod, "_using_hash_fallback", False),
+		):
+			status = embedder_mod.get_status()
+			assert status["status"] == "ok"
+			assert status["dimension"] == 384
+			assert status["loaded"] is True
+
+	def test_get_status_unavailable(self):
+		with patch.object(embedder_mod, "TextEmbedding", None):
+			status = embedder_mod.get_status()
+			assert status["status"] == "unavailable"
+			assert "hint" in status
+
 
 # ---------------------------------------------------------------------------
 # arXiv client tests

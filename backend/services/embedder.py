@@ -9,10 +9,16 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_IMPORT_ERROR: str | None = None
+_INIT_ERROR: str | None = None
+
 try:
 	from fastembed import TextEmbedding
-except Exception:  # noqa: BLE001
+except Exception as _exc:  # noqa: BLE001
 	TextEmbedding = None
+	_IMPORT_ERROR = str(_exc)
+else:
+	_IMPORT_ERROR = None
 
 _DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _MODEL_NAME = os.getenv("LOCAL_EMBEDDING_MODEL", _DEFAULT_MODEL_NAME).strip() or _DEFAULT_MODEL_NAME
@@ -35,18 +41,74 @@ def _resolve_model_name() -> str:
 
 
 def _get_model():
-	global _MODEL, _using_hash_fallback
+	global _MODEL, _using_hash_fallback, _INIT_ERROR
 	if TextEmbedding is None:
+		logger.warning(
+			"Cannot load embedding model: fastembed library is not available (%s). "
+			"Ensure Python 3.11 or 3.12 is used in your deployment environment.",
+			_IMPORT_ERROR,
+		)
 		return None
 	if _MODEL is None:
 		try:
-			_MODEL = TextEmbedding(model_name=_resolve_model_name())
+			cache_path = os.getenv("FASTEMBED_CACHE_PATH", "").strip() or None
+			kwargs: dict[str, Any] = {"model_name": _resolve_model_name()}
+			if cache_path:
+				kwargs["cache_dir"] = cache_path
+			_MODEL = TextEmbedding(**kwargs)
 			_using_hash_fallback = False
+			_INIT_ERROR = None
 			logger.info("Embedding model loaded: %s", _resolve_model_name())
 		except Exception as exc:  # noqa: BLE001
+			_INIT_ERROR = str(exc)
 			logger.error("Failed to initialize embedding model %s: %s", _resolve_model_name(), exc)
 			return None
 	return _MODEL
+
+
+def warm_up() -> bool:
+	"""
+	Pre-load the FastEmbed model during application startup.
+	Returns True if the model was loaded successfully, False otherwise.
+	"""
+	if TextEmbedding is None:
+		logger.warning(
+			"FastEmbed cannot be warmed up: library not installed or import failed (%s). "
+			"In Render, set PYTHON_VERSION=3.11.10 in Environment Variables.",
+			_IMPORT_ERROR,
+		)
+		return False
+	model = _get_model()
+	return model is not None
+
+
+def get_status() -> dict[str, Any]:
+	"""Return diagnostic status information about the embedding model."""
+	if TextEmbedding is None:
+		return {
+			"status": "unavailable",
+			"model": _resolve_model_name(),
+			"reason": f"fastembed library could not be imported: {_IMPORT_ERROR}",
+			"hint": "Render defaults to Python 3.13. Set PYTHON_VERSION=3.11.10 in Render environment variables and ensure .python-version is present.",
+		}
+	if _INIT_ERROR is not None:
+		return {
+			"status": "error",
+			"model": _resolve_model_name(),
+			"reason": f"Model failed to initialize: {_INIT_ERROR}",
+		}
+	if _using_hash_fallback:
+		return {
+			"status": "degraded_hash",
+			"model": "hash-fallback",
+			"dimension": _HASH_DIM,
+		}
+	return {
+		"status": "ok",
+		"model": _resolve_model_name(),
+		"dimension": _HASH_DIM,
+		"loaded": _MODEL is not None,
+	}
 
 
 def _normalize(vector: list[float]) -> list[float]:
@@ -123,9 +185,10 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 		return [_hash_embed(text) for text in texts]
 
 	# No fallback allowed — surface the error clearly.
+	error_detail = _IMPORT_ERROR or _INIT_ERROR or "model unavailable"
 	raise RuntimeError(
-		"Embedding model is unavailable and hash fallback is disabled. "
-		"Ensure the fastembed package is installed and the model can be loaded. "
+		f"Embedding model is unavailable and hash fallback is disabled ({error_detail}). "
+		"Ensure the fastembed package is installed (Python 3.11 or 3.12 required) and the model can be loaded. "
 		"To allow degraded offline operation set USE_HASH_EMBEDDING_FALLBACK=true."
 	)
 

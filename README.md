@@ -243,11 +243,15 @@ npm run build
    - **Build Command**: `pip install -r backend/requirements.txt`
    - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 3. Environment Variables:
+   - `PYTHON_VERSION`: `3.11.10` *(critical: Render defaults to 3.13; FastEmbed requires Python 3.11 or 3.12)*
    - `GROQ_API_KEY`: your Groq API key
    - `VECTOR_STORE_BACKEND`: `pinecone`
    - `PINECONE_API_KEY`: your Pinecone API key
    - `PINECONE_INDEX_NAME`: `scholytics-papers`
-   - `FRONTEND_ORIGIN`: `https://your-scholytics-frontend.vercel.app`
+   - `PINECONE_HOST`: your Pinecone host URL (e.g. `https://scholytics-papers-xxxx.svc.aped-4627-b74a.pinecone.io`)
+   - `LOCAL_EMBEDDING_MODEL`: `BAAI/bge-small-en-v1.5`
+   - `USE_HASH_EMBEDDING_FALLBACK`: `false`
+   - `FRONTEND_ORIGIN`: `https://scholytics.vercel.app` *(without trailing slash)*
 
 ### Pinecone Free Tier Index Setup
 Create a free serverless index in the [Pinecone Console](https://app.pinecone.io/):
@@ -264,4 +268,4 @@ Create a free serverless index in the [Pinecone Console](https://app.pinecone.io
 
 ### Health & Observability Endpoints
 - **Liveness Check**: `GET /` — Returns `{"status": "ok"}` when process is running.
-- **Readiness Check**: `GET /health/ready` — Checks vector store initialization, active backend (`chroma` or `pinecone`), and Groq API key presence without unmetered external calls.
+- **Readiness Check**: `GET /health/ready` — Inspects vector store initialization, active backend (`chroma` or `pinecone`), FastEmbed embedding model status, and Groq API key presence without unmetered external calls.

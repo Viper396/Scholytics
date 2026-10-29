@@ -75,6 +75,33 @@ class TestHealthAndSecurity:
         assert "vector_store" in data
         assert "vector_store_backend" in data
 
+    def test_readiness_includes_embedder_status(self, client):
+        """Readiness check reports embedder diagnostics."""
+        response = client.get("/health/ready")
+        assert response.status_code == 200
+        data = response.json()
+        assert "embedder" in data
+        assert "status" in data["embedder"]
+        assert "model" in data["embedder"]
+
+    def test_readiness_reports_embedder_failure(self, client):
+        """When embedder is unavailable, readiness status is degraded and issue is logged."""
+        from services import embedder
+        with patch.object(embedder, "get_status", return_value={"status": "unavailable", "reason": "fastembed missing"}):
+            response = client.get("/health/ready")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "degraded"
+            assert any("fastembed missing" in issue for issue in data["issues"])
+
+    def test_allowed_origins_handles_trailing_slash(self):
+        """get_allowed_origins normalizes origins with and without trailing slash."""
+        from main import get_allowed_origins
+        with patch.dict(os.environ, {"FRONTEND_ORIGIN": "https://scholytics.vercel.app/"}):
+            origins = get_allowed_origins()
+            assert "https://scholytics.vercel.app" in origins
+            assert "https://scholytics.vercel.app/" in origins
+
 
 # ===========================================================================
 # 2. Search Request Validation & Filter Boundaries

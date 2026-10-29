@@ -25,7 +25,9 @@ def get_allowed_origins() -> list[str]:
 			"Set FRONTEND_ORIGIN to your deployed frontend URL in production."
 		)
 		return []
-	return [frontend_origin]
+	# Normalize: allow both with and without trailing slash to prevent CORS mismatch
+	origins = {frontend_origin, frontend_origin.rstrip("/")}
+	return [o for o in origins if o]
 
 
 def _build_vector_store():
@@ -77,6 +79,13 @@ async def lifespan(app: FastAPI):
 		logger.error("Failed to initialise vector store (%s): %s", backend_name, exc)
 		app.state.vector_store = None
 
+	# Warm up embedding model at startup so cold-start doesn't stall search requests.
+	try:
+		from services import embedder
+		embedder.warm_up()
+	except Exception as exc:  # noqa: BLE001
+		logger.warning("Embedder warm-up encountered an issue: %s", exc)
+
 	logger.info("Scholytics backend started.")
 	yield
 	logger.info("Scholytics backend shutting down.")
@@ -126,16 +135,22 @@ async def readiness_check() -> dict[str, object]:
 	groq_key_configured = bool(os.getenv("GROQ_API_KEY", "").strip())
 	backend_name = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
 
+	from services import embedder
+	emb_status = embedder.get_status()
+
 	issues: list[str] = []
 	if vector_store is None:
 		issues.append(f"Vector store ({backend_name}) is unavailable")
 	if not groq_key_configured:
 		issues.append("GROQ_API_KEY is not configured")
+	if emb_status.get("status") in ("unavailable", "error"):
+		issues.append(f"Embedder unavailable: {emb_status.get('reason')}")
 
 	return {
 		"status": "ready" if not issues else "degraded",
 		"vector_store": "ok" if vector_store is not None else "unavailable",
 		"vector_store_backend": backend_name,
 		"groq_configured": groq_key_configured,
+		"embedder": emb_status,
 		"issues": issues,
 	}
