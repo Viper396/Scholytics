@@ -1,20 +1,39 @@
 import logging
 import os
+import re
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from routers.graph import router as graph_router
 from routers.ingest import router as ingest_router
 from routers.papers import router as papers_router
 from routers.search import router as search_router
+from services.metrics import (
+	SecretRedactionFilter,
+	generate_request_id,
+	get_request_id,
+	metrics,
+	set_request_id,
+)
 
+# Configure logging with secret redaction
 logging.basicConfig(
 	level=logging.INFO,
 	format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+root_logger = logging.getLogger()
+redaction_filter = SecretRedactionFilter()
+root_logger.addFilter(redaction_filter)
+for handler in root_logger.handlers:
+	handler.addFilter(redaction_filter)
+
 logger = logging.getLogger(__name__)
+
+_SAFE_REQ_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 
 
 def get_allowed_origins() -> list[str]:
@@ -111,6 +130,59 @@ app = FastAPI(
 	redoc_url="/redoc",
 )
 
+
+class RequestObservabilityMiddleware(BaseHTTPMiddleware):
+	"""
+	Propagates request ID, logs structured request lifecycle, and measures end-to-end latency.
+	"""
+
+	async def dispatch(self, request: Request, call_next) -> Response:
+		raw_req_id = request.headers.get("x-request-id", "").strip()
+		if raw_req_id and _SAFE_REQ_ID_PATTERN.match(raw_req_id):
+			req_id = raw_req_id
+		else:
+			req_id = generate_request_id()
+
+		set_request_id(req_id)
+		start_time = time.perf_counter()
+
+		path = request.url.path
+		method = request.method
+		logger.info("Request started: %s %s [req_id=%s]", method, path, req_id)
+
+		try:
+			response = await call_next(request)
+			elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+
+			response.headers["X-Request-ID"] = req_id
+			response.headers["X-Response-Time-Ms"] = f"{elapsed_ms:.2f}"
+
+			metrics.record_request(method, response.status_code)
+			logger.info(
+				"Request completed: %s %s -> %d (%.2fms) [req_id=%s]",
+				method,
+				path,
+				response.status_code,
+				elapsed_ms,
+				req_id,
+			)
+			return response
+		except Exception as exc:  # noqa: BLE001
+			elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+			metrics.record_request(method, 500)
+			logger.error(
+				"Request failed: %s %s (%.2fms) [req_id=%s]: %s",
+				method,
+				path,
+				elapsed_ms,
+				req_id,
+				exc,
+			)
+			raise
+
+
+app.add_middleware(RequestObservabilityMiddleware)
+
 app.add_middleware(
 	CORSMiddleware,
 	allow_origins=get_allowed_origins(),
@@ -126,16 +198,34 @@ app.include_router(ingest_router)
 
 
 @app.get("/", tags=["health"])
-async def health_check() -> dict[str, str]:
-	"""Liveness check — returns ok when the process is running."""
+async def root_health_check() -> dict[str, str]:
+	"""Liveness check alias — returns ok when the process is running."""
 	return {"status": "ok"}
+
+
+@app.get("/health/live", tags=["health"])
+async def liveness_check() -> dict[str, object]:
+	"""
+	Lightweight process liveness probe.
+
+	Verifies that the HTTP server process is running and responding to requests.
+	Does NOT make external network or dependency calls.
+	"""
+	summary = metrics.get_summary()
+	return {
+		"status": "alive",
+		"version": "1.0.0",
+		"uptime_seconds": summary["uptime_seconds"],
+	}
 
 
 @app.get("/health/ready", tags=["health"])
 async def readiness_check() -> dict[str, object]:
 	"""
-	Readiness check — reports whether key dependencies are available.
+	Readiness check — reports whether key process dependencies are available.
 
+	Checks in-memory configuration, vector store adapter initialization,
+	embedder readiness, and reranker status.
 	Does NOT make external network calls on every request.
 	"""
 	vector_store = getattr(app.state, "vector_store", None)
@@ -163,6 +253,24 @@ async def readiness_check() -> dict[str, object]:
 		"reranker": rerank_status,
 		"issues": issues,
 	}
+
+
+@app.get("/api/metrics", tags=["observability"])
+async def get_metrics() -> dict[str, object]:
+	"""
+	Operational telemetry, counters, and rolling stage latencies.
+
+	Note: Metrics are stored transiently in memory and will reset whenever
+	the free-tier server sleeps or restarts.
+	"""
+	return metrics.get_summary()
+
+
+@app.post("/api/metrics/reset", tags=["observability"])
+async def reset_metrics() -> dict[str, str]:
+	"""Reset in-memory counters and latency buffers (for testing/benchmarking)."""
+	metrics.reset()
+	return {"status": "reset"}
 
 
 @app.get("/api/cache/stats", tags=["cache"])

@@ -9,6 +9,7 @@ in local development and CI (no external credentials required).
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from db.vector_store import (
@@ -17,6 +18,7 @@ from db.vector_store import (
     compute_paper_hash,
     extract_arxiv_version,
 )
+from services.metrics import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,7 @@ class ChromaAdapter(VectorStore):
             return 0
 
         count = 0
+        t0 = time.perf_counter()
         for paper, embedding in zip(papers, embeddings):
             raw_id = paper.get("arxiv_id")
             if not raw_id:
@@ -102,6 +105,7 @@ class ChromaAdapter(VectorStore):
             )
             count += 1
 
+        metrics.record_latency("vector_upsert_ms", (time.perf_counter() - t0) * 1000.0)
         logger.debug("ChromaAdapter: upserted %d papers", count)
         return count
 
@@ -170,7 +174,9 @@ class ChromaAdapter(VectorStore):
         if where_clause is not None:
             query_kwargs["where"] = where_clause
 
+        t0 = time.perf_counter()
         result = self._collection.query(**query_kwargs)
+        metrics.record_latency("vector_query_ms", (time.perf_counter() - t0) * 1000.0)
 
         ids = (result.get("ids") or [[]])[0]
         distances = (result.get("distances") or [[]])[0]

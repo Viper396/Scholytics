@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any
 
 from db.vector_store import (
@@ -51,6 +52,7 @@ from db.vector_store import (
     compute_paper_hash,
     extract_arxiv_version,
 )
+from services.metrics import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -179,10 +181,14 @@ class PineconeAdapter(VectorStore):
         upserted = 0
         for i in range(0, len(vectors), _UPSERT_BATCH_SIZE):
             batch = vectors[i : i + _UPSERT_BATCH_SIZE]
+            t0 = time.perf_counter()
             try:
+                metrics.increment("pinecone_ops_total")
                 response = self._index.upsert(vectors=batch, show_progress=False)
+                metrics.record_latency("vector_upsert_ms", (time.perf_counter() - t0) * 1000.0)
                 upserted += getattr(response, "upserted_count", len(batch))
             except Exception as exc:  # noqa: BLE001
+                metrics.increment("pinecone_errors_total")
                 logger.error("Pinecone upsert batch %d failed: %s", i // _UPSERT_BATCH_SIZE, exc)
                 raise
 
@@ -246,7 +252,15 @@ class PineconeAdapter(VectorStore):
         if filter_clause is not None:
             query_kwargs["filter"] = filter_clause
 
-        response = self._index.query(**query_kwargs)
+        t0 = time.perf_counter()
+        try:
+            metrics.increment("pinecone_ops_total")
+            response = self._index.query(**query_kwargs)
+            metrics.record_latency("vector_query_ms", (time.perf_counter() - t0) * 1000.0)
+        except Exception as exc:  # noqa: BLE001
+            metrics.increment("pinecone_errors_total")
+            logger.error("Pinecone query failed: %s", exc)
+            raise
 
         matches: list[dict[str, Any]] = []
         for match in getattr(response, "matches", []):

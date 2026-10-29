@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -17,6 +18,7 @@ from services.cache import (
 	paper_comparison_cache,
 	paper_summary_cache,
 )
+from services.metrics import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +111,7 @@ async def summarize_paper(
 	else:
 		paper = {"arxiv_id": arxiv_id, "title": title, "abstract": abstract}
 
+	t_sum = time.perf_counter()
 	try:
 		summary = await asyncio.to_thread(
 			summarizer.summarize_paper,
@@ -116,7 +119,9 @@ async def summarize_paper(
 			abstract=abstract,
 			arxiv_id=arxiv_id,
 		)
+		metrics.record_latency("groq_summary_ms", (time.perf_counter() - t_sum) * 1000.0)
 	except Exception as exc:  # noqa: BLE001
+		metrics.record_groq_failure("summary")
 		logger.error("Summary generation failed for %s: %s", arxiv_id, exc)
 		exc_str = str(exc)
 		exc_name = type(exc).__name__.lower()
@@ -212,14 +217,17 @@ async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.Com
 	papers_by_id = {str(p.get("arxiv_id", "")).strip(): p for p in papers}
 	ordered_papers = [papers_by_id[aid] for aid in payload.arxiv_ids if aid in papers_by_id]
 
+	t_cmp = time.perf_counter()
 	try:
 		comparison = await asyncio.to_thread(
 			comparer.compare_papers,
 			papers=ordered_papers,
 			query=payload.query,
 		)
+		metrics.record_latency("groq_compare_ms", (time.perf_counter() - t_cmp) * 1000.0)
 		return comparison
 	except Exception as exc:  # noqa: BLE001
+		metrics.record_groq_failure("compare")
 		logger.error("Paper comparison failed: %s", exc)
 		exc_str = str(exc)
 		exc_name = type(exc).__name__.lower()

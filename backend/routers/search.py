@@ -19,6 +19,7 @@ from services.cache import (
 	build_search_cache_key,
 	search_response_cache,
 )
+from services.metrics import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +152,12 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 	)
 
 	async def _execute_search() -> dict[str, Any]:
+		t_search_start = time.perf_counter()
+
 		# ------------------------------------------------------------------
 		# Step 1: Live Discovery from arXiv (Fresh literature search)
 		# ------------------------------------------------------------------
+		t_arxiv = time.perf_counter()
 		try:
 			papers = await asyncio.to_thread(
 				arxiv_client.search_papers,
@@ -161,23 +165,31 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 				max_results=payload.max_results,
 				filters=filters_dict,
 			)
+			metrics.record_latency("arxiv_search_ms", (time.perf_counter() - t_arxiv) * 1000.0)
 		except RuntimeError as exc:
+			metrics.record_retrieval_failure("arxiv")
 			logger.error("arXiv search upstream failure for query %r: %s", query, exc)
 			raise HTTPException(status_code=503, detail="arXiv search is currently unavailable. Please try again.") from exc
 		except Exception as exc:  # noqa: BLE001
+			metrics.record_retrieval_failure("arxiv_unexpected")
 			logger.error("Unexpected search error for query %r: %s", query, exc)
 			raise HTTPException(status_code=500, detail="Search pipeline failed") from exc
 
 		if not papers:
+			metrics.record_empty_result()
+			metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
 			return {"query": query, "results": [], "total": 0}
 
 		# ------------------------------------------------------------------
 		# Step 2: Query Embedding
 		# ------------------------------------------------------------------
+		t_embed = time.perf_counter()
 		try:
 			query_vector = embedder.embed_query(query)
+			metrics.record_latency("query_embed_ms", (time.perf_counter() - t_embed) * 1000.0)
 		except RuntimeError as exc:
 			logger.warning("Query embedding unavailable, returning unranked results: %s", exc)
+			metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
 			return _unranked_response(query, papers)
 
 		# ------------------------------------------------------------------
@@ -195,15 +207,19 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 			if ingestion_stats.failed > 0 and ingestion_stats.newly_indexed == 0 and ingestion_stats.already_indexed == 0:
 				# Embedding failed for all candidates and none were already indexed
 				logger.warning("All embeddings failed during ingestion; returning unranked results")
+				metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
 				return _unranked_response(query, papers)
 		except RuntimeError as exc:
 			logger.warning("Embedding model unavailable during ingestion: %s", exc)
+			metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
 			return _unranked_response(query, papers)
 
 		fetched_ids = [str(paper.get("arxiv_id")) for paper in papers if paper.get("arxiv_id")]
 		canonical_ids = list(dict.fromkeys(canonicalize_arxiv_id(aid) for aid in fetched_ids if aid))
 
 		if not canonical_ids:
+			metrics.record_empty_result()
+			metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
 			return {"query": query, "results": [], "total": 0}
 
 		# ------------------------------------------------------------------
@@ -212,13 +228,16 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 		# Degrades gracefully if either retrieval channel is unavailable.
 		# ------------------------------------------------------------------
 		dense_matches: list[dict[str, Any]] = []
+		t_vq = time.perf_counter()
 		try:
 			dense_matches = vector_store.query(
 				query_vector=query_vector,
 				n_results=min(payload.max_results, len(canonical_ids)),
 				filter_ids=canonical_ids,
 			)
+			metrics.record_latency("vector_query_ms", (time.perf_counter() - t_vq) * 1000.0)
 		except Exception as exc:  # noqa: BLE001
+			metrics.record_retrieval_failure("vector_store")
 			logger.error("Vector store query failed: %s", exc)
 
 		bm25_matches: list[dict[str, Any]] = []
@@ -269,6 +288,7 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 		# preserve sub-second latency and Render free-tier RAM limits.
 		# ------------------------------------------------------------------
 		if reranker.is_reranker_enabled() and matches:
+			t_rerank = time.perf_counter()
 			try:
 				rerank_input = []
 				for m in matches:
@@ -286,6 +306,7 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 					candidates=rerank_input,
 					top_k=payload.max_results,
 				)
+				metrics.record_latency("rerank_ms", (time.perf_counter() - t_rerank) * 1000.0)
 				if reranked_matches:
 					matches = reranked_matches
 					retrieval_mode = f"{retrieval_mode}_reranked"
@@ -330,6 +351,10 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 			results.append(result)
 
 		results.sort(key=lambda item: item["relevance_score"] or 0.0, reverse=True)
+
+		if not results:
+			metrics.record_empty_result()
+		metrics.record_latency("search_total_ms", (time.perf_counter() - t_search_start) * 1000.0)
 
 		response: dict[str, Any] = {
 			"query": query,
@@ -419,13 +444,15 @@ async def synthesize_search(payload: SearchSynthesizeRequest) -> StreamingRespon
 	source_records = summarizer.build_source_records(papers)
 	valid_indices = {int(s["source_index"]) for s in source_records}
 
-	def event_stream():
-		# Step 1: Emit structured grounding sources metadata event
-		sources_json = json.dumps(source_records)
-		yield f"event: sources\ndata: {sources_json}\n\n"
-
+	async def event_stream():
+		t_synth_start = time.perf_counter()
 		accumulated_tokens: list[str] = []
 		try:
+			# Step 1: Emit structured grounding sources metadata event
+			sources_json = json.dumps(source_records)
+			yield f"event: sources\ndata: {sources_json}\n\n"
+			await asyncio.sleep(0)
+
 			for token in summarizer.generate_search_summary(query, papers):
 				accumulated_tokens.append(token)
 				# Each token may contain newlines; emit each non-empty line separately.
@@ -435,7 +462,23 @@ async def synthesize_search(payload: SearchSynthesizeRequest) -> StreamingRespon
 					lines = [""]
 				data_lines = "\n".join(f"data: {line}" for line in lines)
 				yield f"{data_lines}\n\n"
+				await asyncio.sleep(0)
+
+			# Step 2: Validate inline citations against the retrieved source set
+			full_text = "".join(accumulated_tokens)
+			validation = summarizer.validate_citations(full_text, valid_indices)
+			validation_json = json.dumps(validation)
+			yield f"event: validation\ndata: {validation_json}\n\n"
+			await asyncio.sleep(0)
+
+			# Step 3: Stream completion
+			yield "event: done\ndata: [DONE]\n\n"
+		except (GeneratorExit, asyncio.CancelledError):
+			logger.warning("Synthesis stream interrupted by client cancellation")
+			metrics.record_streaming_interruption()
+			raise
 		except Exception as exc:  # noqa: BLE001
+			metrics.record_groq_failure("synthesis")
 			logger.error("Synthesis stream error: %s", exc)
 			exc_str = str(exc)
 			exc_name = type(exc).__name__.lower()
@@ -447,14 +490,7 @@ async def synthesize_search(payload: SearchSynthesizeRequest) -> StreamingRespon
 				err_msg = "Synthesis unavailable."
 			yield f"event: error\ndata: {err_msg}\n\n"
 			return
-
-		# Step 2: Validate inline citations against the retrieved source set
-		full_text = "".join(accumulated_tokens)
-		validation = summarizer.validate_citations(full_text, valid_indices)
-		validation_json = json.dumps(validation)
-		yield f"event: validation\ndata: {validation_json}\n\n"
-
-		# Step 3: Stream completion
-		yield "event: done\ndata: [DONE]\n\n"
+		finally:
+			metrics.record_latency("groq_synthesis_ms", (time.perf_counter() - t_synth_start) * 1000.0)
 
 	return StreamingResponse(event_stream(), media_type="text/event-stream")

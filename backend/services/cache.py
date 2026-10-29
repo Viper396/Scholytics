@@ -71,6 +71,11 @@ class BoundedLRU(Generic[K, V]):
             entry = self._store.get(key)
             if entry is None:
                 self._misses += 1
+                try:
+                    from services.metrics import metrics
+                    metrics.record_cache_miss(self.name)
+                except Exception:
+                    pass
                 return None
 
             val, expires_at, _ = entry
@@ -80,11 +85,21 @@ class BoundedLRU(Generic[K, V]):
                 self._store.pop(key, None)
                 self._expirations += 1
                 self._misses += 1
+                try:
+                    from services.metrics import metrics
+                    metrics.record_cache_miss(self.name)
+                except Exception:
+                    pass
                 return None
 
             # Hit — mark as most recently used
             self._store.move_to_end(key, last=True)
             self._hits += 1
+            try:
+                from services.metrics import metrics
+                metrics.record_cache_hit(self.name)
+            except Exception:
+                pass
             return val
 
     def set(self, key: K, value: V, ttl: float | None = None) -> None:
