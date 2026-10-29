@@ -9,9 +9,9 @@ from groq import Groq
 
 logger = logging.getLogger(__name__)
 
-_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
-_GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+_DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
 _GROQ_CLIENT: Groq | None = None
+_CACHED_KEY: str | None = None
 
 # Bound context to keep prompt within token limits.
 _MAX_ABSTRACT_CHARS = 1200
@@ -19,27 +19,38 @@ _MAX_PAPERS_FOR_SYNTHESIS = 8
 _MAX_TITLE_CHARS = 200
 
 
+def _get_api_key() -> str:
+	return os.getenv("GROQ_API_KEY", "").strip()
+
+
+def _get_model_name() -> str:
+	return os.getenv("GROQ_MODEL", _DEFAULT_GROQ_MODEL).strip() or _DEFAULT_GROQ_MODEL
+
+
 def _get_client() -> Groq:
-	global _GROQ_CLIENT
-	if _GROQ_CLIENT is None:
-		if not _GROQ_API_KEY:
-			raise RuntimeError(
-				"GROQ_API_KEY is not configured. "
-				"Set the GROQ_API_KEY environment variable to enable LLM features."
-			)
-		_GROQ_CLIENT = Groq(api_key=_GROQ_API_KEY)
+	global _GROQ_CLIENT, _CACHED_KEY
+	api_key = _get_api_key()
+	if not api_key:
+		raise RuntimeError(
+			"GROQ_API_KEY is not configured. "
+			"Set the GROQ_API_KEY environment variable to enable LLM features."
+		)
+	if _GROQ_CLIENT is None or _CACHED_KEY != api_key:
+		_GROQ_CLIENT = Groq(api_key=api_key)
+		_CACHED_KEY = api_key
 	return _GROQ_CLIENT
 
 
 def summarize_paper(title: str, abstract: str) -> str:
 	client = _get_client()
+	model_name = _get_model_name()
 
 	# Bound inputs to avoid runaway token usage.
 	safe_title = title.strip()[:_MAX_TITLE_CHARS]
 	safe_abstract = abstract.strip()[:_MAX_ABSTRACT_CHARS]
 
 	response = client.chat.completions.create(
-		model=_GROQ_MODEL,
+		model=model_name,
 		messages=[
 			{
 				"role": "system",
@@ -107,11 +118,12 @@ def _build_papers_context(papers: list[dict], max_papers: int = _MAX_PAPERS_FOR_
 
 def generate_search_summary(query: str, papers: list[dict]) -> Generator[str, None, None]:
 	client = _get_client()
+	model_name = _get_model_name()
 	papers_context = _build_papers_context(papers)
 	safe_query = query.strip()[:400]
 
 	stream = client.chat.completions.create(
-		model=_GROQ_MODEL,
+		model=model_name,
 		messages=[
 			{
 				"role": "system",

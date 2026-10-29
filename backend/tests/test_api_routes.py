@@ -277,6 +277,16 @@ class TestPaperDetailsAndSummaries:
         assert response.json()["detail"] == "Failed to summarize paper"
 
     @patch("services.arxiv_client.fetch_paper_by_id")
+    @patch("services.summarizer.summarize_paper")
+    def test_summarize_paper_auth_failure_returns_actionable_error(self, mock_summarize, mock_fetch, client):
+        mock_fetch.return_value = _make_sample_paper("2301.00001")
+        mock_summarize.side_effect = RuntimeError("Error code: 401 - {'error': {'code': 'invalid_api_key'}}")
+
+        response = client.post("/api/papers/2301.00001/summarize")
+        assert response.status_code == 500
+        assert "Invalid GROQ_API_KEY" in response.json()["detail"]
+
+    @patch("services.arxiv_client.fetch_paper_by_id")
     @patch("services.summarizer.summarize_multiple")
     def test_summarize_batch_success(self, mock_multi, mock_fetch, client):
         mock_fetch.return_value = _make_sample_paper("2301.00001")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from typing import Any
 
@@ -23,6 +24,11 @@ def _validate_arxiv_id_format(arxiv_id: str) -> str:
 	if not _ARXIV_ID_PATTERN.match(cleaned):
 		raise ValueError(f"Invalid arXiv ID format: {arxiv_id!r}")
 	return cleaned
+
+
+class SummarizePaperRequest(BaseModel):
+	title: str | None = None
+	abstract: str | None = None
 
 
 class SummarizeBatchRequest(BaseModel):
@@ -55,25 +61,44 @@ async def get_paper(arxiv_id: str) -> dict[str, Any]:
 
 
 @router.post("/api/papers/{arxiv_id}/summarize")
-async def summarize_paper(arxiv_id: str) -> dict[str, str]:
+async def summarize_paper(
+	arxiv_id: str,
+	payload: SummarizePaperRequest | None = None,
+) -> dict[str, str]:
 	try:
 		_validate_arxiv_id_format(arxiv_id)
 	except ValueError as exc:
 		raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-	paper = await asyncio.to_thread(arxiv_client.fetch_paper_by_id, arxiv_id)
-	if paper is None:
-		raise HTTPException(status_code=404, detail="Paper not found")
+	title = payload.title.strip() if payload and payload.title else None
+	abstract = payload.abstract.strip() if payload and payload.abstract else None
+
+	if not title or not abstract:
+		paper = await asyncio.to_thread(arxiv_client.fetch_paper_by_id, arxiv_id)
+		if paper is None:
+			raise HTTPException(status_code=404, detail="Paper not found")
+		title = str(paper.get("title", ""))
+		abstract = str(paper.get("abstract", ""))
+	else:
+		paper = {"arxiv_id": arxiv_id, "title": title, "abstract": abstract}
 
 	try:
 		summary = await asyncio.to_thread(
 			summarizer.summarize_paper,
-			title=str(paper.get("title", "")),
-			abstract=str(paper.get("abstract", "")),
+			title=title,
+			abstract=abstract,
 		)
 	except Exception as exc:  # noqa: BLE001
 		logger.error("Summary generation failed for %s: %s", arxiv_id, exc)
-		raise HTTPException(status_code=500, detail="Failed to summarize paper") from exc
+		exc_str = str(exc)
+		exc_name = type(exc).__name__.lower()
+		if "invalid_api_key" in exc_str.lower() or "authentication" in exc_name or "401" in exc_str:
+			detail = "Groq authentication failed: Invalid GROQ_API_KEY. Please verify your API key at console.groq.com and in Render."
+		elif "ratelimit" in exc_name or "429" in exc_str:
+			detail = "Groq rate limit reached. Please wait a moment before requesting another summary."
+		else:
+			detail = "Failed to summarize paper"
+		raise HTTPException(status_code=500, detail=detail) from exc
 
 	return {"arxiv_id": str(paper.get("arxiv_id", arxiv_id)), "summary": summary}
 

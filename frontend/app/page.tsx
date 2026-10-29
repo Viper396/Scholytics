@@ -639,14 +639,32 @@ export default function Home() {
       [arxivId]: { ...current[arxivId], open: true, loading: true, error: undefined },
     }));
 
+    const paper = results.find((p) => p.arxiv_id === arxivId);
+
     try {
       const response = await fetch(
         `/api/papers/${encodeURIComponent(arxivId)}/summarize`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: paper?.title,
+            abstract: paper?.abstract,
+          }),
+        },
       );
 
       if (!response.ok) {
-        throw new Error("Summary unavailable right now.");
+        let msg = "Summary unavailable right now.";
+        try {
+          const errData = await response.json();
+          if (errData?.detail) {
+            msg = typeof errData.detail === "string" ? errData.detail : JSON.stringify(errData.detail);
+          }
+        } catch {
+          // fallback to generic
+        }
+        throw new Error(msg);
       }
 
       const data = (await response.json()) as { arxiv_id: string; summary: string };
