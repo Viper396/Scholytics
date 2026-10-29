@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from services import arxiv_client, comparer, summarizer
 from services.metrics import metrics
+from db.vector_store import canonicalize_arxiv_id
 
 logger = logging.getLogger(__name__)
 
@@ -231,17 +232,17 @@ async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.Com
 	"""
 	papers: list[dict[str, Any]] = []
 
-	# 1. Use client-provided paper metadata if supplied
+	# 1. Use client-provided paper metadata if supplied (match by raw or canonical ID)
 	if payload.papers:
-		id_set = set(payload.arxiv_ids)
+		id_set = {canonicalize_arxiv_id(aid) for aid in payload.arxiv_ids}
 		for p in payload.papers:
-			pid = str(p.get("arxiv_id", "")).strip()
-			if pid and pid in id_set:
+			raw_pid = str(p.get("arxiv_id", "")).strip()
+			if raw_pid and canonicalize_arxiv_id(raw_pid) in id_set:
 				papers.append(p)
 
 	# 2. Fetch any missing papers from arXiv
-	present_ids = {str(p.get("arxiv_id", "")).strip() for p in papers}
-	missing_ids = [aid for aid in payload.arxiv_ids if aid not in present_ids]
+	present_ids = {canonicalize_arxiv_id(str(p.get("arxiv_id", "")).strip()) for p in papers}
+	missing_ids = [aid for aid in payload.arxiv_ids if canonicalize_arxiv_id(aid) not in present_ids]
 
 	if missing_ids:
 		sem = asyncio.Semaphore(4)
@@ -262,9 +263,24 @@ async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.Com
 			detail="Could not retrieve at least 2 valid papers for comparison.",
 		)
 
-	# Preserve requested order
-	papers_by_id = {str(p.get("arxiv_id", "")).strip(): p for p in papers}
-	ordered_papers = [papers_by_id[aid] for aid in payload.arxiv_ids if aid in papers_by_id]
+	# Preserve requested order, resolving by raw or canonical ID
+	papers_by_id: dict[str, dict[str, Any]] = {}
+	for p in papers:
+		raw_pid = str(p.get("arxiv_id", "")).strip()
+		papers_by_id[raw_pid] = p
+		papers_by_id[canonicalize_arxiv_id(raw_pid)] = p
+
+	ordered_papers: list[dict[str, Any]] = []
+	for aid in payload.arxiv_ids:
+		paper = papers_by_id.get(aid) or papers_by_id.get(canonicalize_arxiv_id(aid))
+		if paper and paper not in ordered_papers:
+			ordered_papers.append(paper)
+
+	if len(ordered_papers) < 2:
+		raise HTTPException(
+			status_code=404,
+			detail="Could not match at least 2 valid papers for comparison.",
+		)
 
 	t_cmp = time.perf_counter()
 	try:
@@ -278,8 +294,14 @@ async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.Com
 	except Exception as exc:  # noqa: BLE001
 		metrics.record_groq_failure("compare")
 		logger.error("Paper comparison failed: %s", exc)
-		exc_str = str(exc)
+		exc_str = str(exc).lower()
 		exc_name = type(exc).__name__.lower()
+
+		if "not configured" in exc_str or "groq_api_key is not configured" in exc_str:
+			raise HTTPException(
+				status_code=503,
+				detail="LLM paper comparison is currently unconfigured. Set GROQ_API_KEY in the environment.",
+			) from exc
 		if "401" in exc_str or "authentication" in exc_name or "invalid_api_key" in exc_str:
 			raise HTTPException(
 				status_code=502,
@@ -290,7 +312,12 @@ async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.Com
 				status_code=429,
 				detail="Groq rate limit reached. Please wait a moment before requesting comparison.",
 			) from exc
+		if "model_not_found" in exc_str or "does not exist" in exc_str or "decommissioned" in exc_str:
+			raise HTTPException(
+				status_code=502,
+				detail="Configured model is unavailable or decommissioned on Groq. Please verify GROQ_MODEL in environment settings.",
+			) from exc
 		raise HTTPException(
 			status_code=500,
-			detail=f"Failed to generate comparison: {exc_str}",
+			detail="Failed to generate comparison. Please check server logs and try again.",
 		) from exc
