@@ -29,11 +29,14 @@ def _stub_module(name: str, attrs: dict | None = None) -> types.ModuleType:
 	return mod
 
 
-# Stub chromadb
+# Stub chromadb only if not installed
 if "chromadb" not in sys.modules:
-	chromadb_mod = _stub_module("chromadb")
-	chromadb_mod.EphemeralClient = MagicMock
-	sys.modules["chromadb"] = chromadb_mod
+	try:
+		import chromadb  # noqa: F401
+	except ImportError:
+		chromadb_mod = _stub_module("chromadb")
+		chromadb_mod.EphemeralClient = MagicMock
+		sys.modules["chromadb"] = chromadb_mod
 
 # Stub fastembed
 if "fastembed" not in sys.modules:

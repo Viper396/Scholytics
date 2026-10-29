@@ -11,8 +11,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from db.chroma_client import get_collection
-from services import arxiv_client, embedder, summarizer
+from db.vector_store import canonicalize_arxiv_id
+from services import arxiv_client, embedder, ingestion, summarizer
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 		else:
 			filters_dict = payload.filters.dict(exclude_none=True)
 
-		# Additional date range sanity check (date_from can't be in the future)
+		# Date range sanity check (date_from can't be in the future)
 		date_from = filters_dict.get("date_from")
 		if date_from:
 			try:
@@ -127,6 +127,9 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 			except ValueError as exc:
 				raise HTTPException(status_code=422, detail="filters.date_from must be YYYY-MM-DD") from exc
 
+	# ------------------------------------------------------------------
+	# Step 1: Live Discovery from arXiv (Fresh literature search)
+	# ------------------------------------------------------------------
 	try:
 		papers = await asyncio.to_thread(
 			arxiv_client.search_papers,
@@ -144,107 +147,97 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 	if not papers:
 		return {"query": query, "results": [], "total": 0}
 
-	collection = get_collection()
-	if collection is None:
+	# Retrieve the configured vector store from app state
+	vector_store = getattr(request.app.state, "vector_store", None)
+	if vector_store is None:
 		raise HTTPException(status_code=500, detail="Vector store is unavailable")
 
-	try:
-		embedder.index_papers(papers, collection)
-	except RuntimeError as exc:
-		# Embedding model is unavailable — return unranked results with a warning.
-		logger.warning("Embedding unavailable, returning unranked results: %s", exc)
-		return {
-			"query": query,
-			"results": [
-				{
-					"arxiv_id": str(p.get("arxiv_id", "")),
-					"title": str(p.get("title", "")),
-					"authors": p.get("authors", []),
-					"abstract": str(p.get("abstract", "")),
-					"published": str(p.get("published", "")),
-					"categories": p.get("categories", []),
-					"pdf_url": str(p.get("pdf_url", "")),
-					"entry_url": str(p.get("entry_url", "")),
-					"relevance_score": None,
-					"ranking_degraded": True,
-				}
-				for p in papers
-			],
-			"total": len(papers),
-			"ranking_note": "Results are unranked because the semantic embedding model is unavailable.",
-		}
-
+	# ------------------------------------------------------------------
+	# Step 2: Query Embedding
+	# ------------------------------------------------------------------
 	try:
 		query_vector = embedder.embed_query(query)
 	except RuntimeError as exc:
 		logger.warning("Query embedding unavailable, returning unranked results: %s", exc)
-		return {
-			"query": query,
-			"results": [
-				{
-					"arxiv_id": str(p.get("arxiv_id", "")),
-					"title": str(p.get("title", "")),
-					"authors": p.get("authors", []),
-					"abstract": str(p.get("abstract", "")),
-					"published": str(p.get("published", "")),
-					"categories": p.get("categories", []),
-					"pdf_url": str(p.get("pdf_url", "")),
-					"entry_url": str(p.get("entry_url", "")),
-					"relevance_score": None,
-					"ranking_degraded": True,
-				}
-				for p in papers
-			],
-			"total": len(papers),
-			"ranking_note": "Results are unranked because the semantic embedding model is unavailable.",
-		}
+		return _unranked_response(query, papers)
+
+	# ------------------------------------------------------------------
+	# Step 3: Incremental, Bounded Ingestion
+	# Check which candidate papers are already indexed in Pinecone/Chroma.
+	# Embed and upsert ONLY newly discovered or modified papers.
+	# Concurrent requests for identical papers are deduplicated.
+	# ------------------------------------------------------------------
+	try:
+		ingestion_stats = await ingestion.ingest_candidates(
+			papers=papers,
+			vector_store=vector_store,
+			max_batch=ingestion.DEFAULT_PER_REQUEST_INGESTION_LIMIT,
+		)
+		if ingestion_stats.failed > 0 and ingestion_stats.newly_indexed == 0 and ingestion_stats.already_indexed == 0:
+			# Embedding failed for all candidates and none were already indexed
+			logger.warning("All embeddings failed during ingestion; returning unranked results")
+			return _unranked_response(query, papers)
+	except RuntimeError as exc:
+		logger.warning("Embedding model unavailable during ingestion: %s", exc)
+		return _unranked_response(query, papers)
 
 	fetched_ids = [str(paper.get("arxiv_id")) for paper in papers if paper.get("arxiv_id")]
+	canonical_ids = list(dict.fromkeys(canonicalize_arxiv_id(aid) for aid in fetched_ids if aid))
 
-	if not fetched_ids:
+	if not canonical_ids:
 		return {"query": query, "results": [], "total": 0}
 
+	# ------------------------------------------------------------------
+	# Step 4: Semantic Reranking against Vector Store
+	# Matches candidate vectors against the embedded query.
+	# ------------------------------------------------------------------
 	try:
-		query_result = collection.query(
-			query_embeddings=[query_vector],
-			n_results=min(payload.max_results, len(fetched_ids)),
-			where={"arxiv_id": {"$in": fetched_ids}},
-			include=["metadatas", "documents", "distances"],
+		matches = vector_store.query(
+			query_vector=query_vector,
+			n_results=min(payload.max_results, len(canonical_ids)),
+			filter_ids=canonical_ids,
 		)
 	except Exception as exc:  # noqa: BLE001
-		logger.error("ChromaDB query failed: %s", exc)
+		logger.error("Vector store query failed: %s", exc)
 		raise HTTPException(status_code=500, detail="Search pipeline failed") from exc
 
-	ids = (query_result.get("ids") or [[]])[0]
-	distances = (query_result.get("distances") or [[]])[0]
-	metadatas = (query_result.get("metadatas") or [[]])[0]
-	documents = (query_result.get("documents") or [[]])[0]
+	papers_by_id: dict[str, dict[str, Any]] = {}
+	for paper in papers:
+		raw_id = str(paper.get("arxiv_id", "")).strip()
+		if raw_id:
+			papers_by_id[raw_id] = paper
+			papers_by_id[canonicalize_arxiv_id(raw_id)] = paper
 
-	papers_by_id = {
-		str(paper.get("arxiv_id")): paper
-		for paper in papers
-		if paper.get("arxiv_id")
-	}
-
-	# Note: relevance_score = 1 - cosine_distance (ChromaDB cosine space).
-	# This is not a probability but a cosine similarity value in [0, 1] for
-	# normalized vectors. It reflects semantic similarity to the query.
+	# ------------------------------------------------------------------
+	# Step 5: Application-level metadata filtering and result mapping
+	# Note: Date boundaries and fine-grained categories are enforced
+	# here to ensure exact precision regardless of vector backend syntax.
+	# ------------------------------------------------------------------
 	is_degraded = embedder.is_using_hash_fallback()
 	results: list[dict[str, Any]] = []
-	for idx, paper_id in enumerate(ids):
-		distance = float(distances[idx]) if idx < len(distances) and distances[idx] is not None else 1.0
-		relevance_score = max(0.0, min(1.0, 1.0 - distance))
-		metadata = metadatas[idx] if idx < len(metadatas) and metadatas[idx] else {}
-		document = documents[idx] if idx < len(documents) else ""
 
-		source_paper = papers_by_id.get(str(paper_id), {})
+	for match in matches:
+		paper_id = match["id"]
+		relevance_score = max(0.0, min(1.0, match["score"]))
+		metadata = match.get("metadata", {})
+
+		source_paper = papers_by_id.get(str(paper_id)) or papers_by_id.get(canonicalize_arxiv_id(str(paper_id)), {})
+		published_str = str(source_paper.get("published") or metadata.get("published") or "")
+		categories = source_paper.get("categories") or _split_csv(metadata.get("categories"))
+
+		# Application-level date filter verification
+		if filters_dict and filters_dict.get("date_from"):
+			filter_date_str = filters_dict["date_from"]
+			if published_str and published_str < filter_date_str:
+				continue
+
 		result = {
 			"arxiv_id": str(source_paper.get("arxiv_id") or metadata.get("arxiv_id") or paper_id),
 			"title": str(source_paper.get("title") or metadata.get("title") or ""),
 			"authors": source_paper.get("authors") or _split_csv(metadata.get("authors")),
-			"abstract": str(source_paper.get("abstract") or document),
-			"published": str(source_paper.get("published") or metadata.get("published") or ""),
-			"categories": source_paper.get("categories") or _split_csv(metadata.get("categories")),
+			"abstract": str(source_paper.get("abstract") or metadata.get("abstract") or ""),
+			"published": published_str,
+			"categories": categories,
 			"pdf_url": str(source_paper.get("pdf_url") or metadata.get("pdf_url") or ""),
 			"entry_url": str(source_paper.get("entry_url") or metadata.get("entry_url") or ""),
 			"relevance_score": relevance_score,
@@ -254,13 +247,46 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 
 	results.sort(key=lambda item: item["relevance_score"] or 0.0, reverse=True)
 
-	response: dict[str, Any] = {"query": query, "results": results, "total": len(results)}
+	response: dict[str, Any] = {
+		"query": query,
+		"results": results,
+		"total": len(results),
+		"ingestion": {
+			"discovered": ingestion_stats.discovered,
+			"already_indexed": ingestion_stats.already_indexed,
+			"newly_indexed": ingestion_stats.newly_indexed,
+		},
+	}
 	if is_degraded:
 		response["ranking_note"] = (
 			"Ranking uses hash-based embeddings (development fallback). "
 			"Results do not reflect genuine semantic similarity."
 		)
 	return response
+
+
+def _unranked_response(query: str, papers: list[dict[str, Any]]) -> dict[str, Any]:
+	"""Return an unranked result set when embedding is unavailable."""
+	return {
+		"query": query,
+		"results": [
+			{
+				"arxiv_id": str(p.get("arxiv_id", "")),
+				"title": str(p.get("title", "")),
+				"authors": p.get("authors", []),
+				"abstract": str(p.get("abstract", "")),
+				"published": str(p.get("published", "")),
+				"categories": p.get("categories", []),
+				"pdf_url": str(p.get("pdf_url", "")),
+				"entry_url": str(p.get("entry_url", "")),
+				"relevance_score": None,
+				"ranking_degraded": True,
+			}
+			for p in papers
+		],
+		"total": len(papers),
+		"ranking_note": "Results are unranked because the semantic embedding model is unavailable.",
+	}
 
 
 @router.post("/api/search/synthesize")

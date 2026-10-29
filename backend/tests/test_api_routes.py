@@ -67,6 +67,14 @@ class TestHealthAndSecurity:
             assert data["groq_configured"] is False
             assert "GROQ_API_KEY is not configured" in data["issues"]
 
+    def test_readiness_includes_vector_store_backend(self, client):
+        """Readiness check reports which vector store backend is active."""
+        response = client.get("/health/ready")
+        assert response.status_code == 200
+        data = response.json()
+        assert "vector_store" in data
+        assert "vector_store_backend" in data
+
 
 # ===========================================================================
 # 2. Search Request Validation & Filter Boundaries
@@ -175,26 +183,25 @@ class TestSearchRanking:
         mock_search.return_value = [p1, p2]
         mock_query_emb.return_value = [0.1] * 384
 
-        # Mock collection query returning distances
-        # ChromaDB cosine distance: 0.1 -> score 0.90; distance 0.6 -> score 0.40
-        fake_collection = MagicMock()
-        fake_collection.query.return_value = {
-            "ids": [["2301.00002", "2301.00001"]],
-            "distances": [[0.6, 0.1]],  # p1 is more relevant than p2
-            "metadatas": [[{}, {}]],
-            "documents": [["", ""]],
-        }
+        # Mock the VectorStore.query() returning unified match format.
+        # score convention: cosine similarity, higher = more relevant.
+        # p1 (score 0.9) should rank above p2 (score 0.4).
+        fake_vector_store = MagicMock()
+        fake_vector_store.query.return_value = [
+            {"id": "2301.00001", "score": 0.9, "metadata": {}},
+            {"id": "2301.00002", "score": 0.4, "metadata": {}},
+        ]
 
-        with patch("routers.search.get_collection", return_value=fake_collection):
-            response = client.post("/api/search", json={"query": "test query"})
-            assert response.status_code == 200
-            results = response.json()["results"]
-            assert len(results) == 2
-            # Should be ordered descending by relevance_score
-            assert results[0]["arxiv_id"] == "2301.00001"
-            assert abs(results[0]["relevance_score"] - 0.9) < 1e-4
-            assert results[1]["arxiv_id"] == "2301.00002"
-            assert abs(results[1]["relevance_score"] - 0.4) < 1e-4
+        client.app.state.vector_store = fake_vector_store
+        response = client.post("/api/search", json={"query": "test query"})
+        assert response.status_code == 200
+        results = response.json()["results"]
+        assert len(results) == 2
+        # Should be ordered descending by relevance_score
+        assert results[0]["arxiv_id"] == "2301.00001"
+        assert abs(results[0]["relevance_score"] - 0.9) < 1e-4
+        assert results[1]["arxiv_id"] == "2301.00002"
+        assert abs(results[1]["relevance_score"] - 0.4) < 1e-4
 
 
 # ===========================================================================

@@ -130,7 +130,17 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 	)
 
 
-def index_papers(papers: list[dict], collection) -> int:
+def index_papers(papers: list[dict], vector_store) -> int:
+	"""
+	Embed *papers* and upsert them into *vector_store*.
+
+	*vector_store* must implement the ``VectorStore`` interface
+	(``db.vector_store.VectorStore``).  This signature replaces the previous
+	API that accepted a raw ChromaDB collection object.
+
+	Returns the number of papers actually indexed.
+	Raises ``RuntimeError`` if embedding fails and the hash fallback is disabled.
+	"""
 	if not papers:
 		return 0
 
@@ -146,28 +156,9 @@ def index_papers(papers: list[dict], collection) -> int:
 		return 0
 
 	embeddings = embed_texts([combined_text for _, combined_text in prepared])
+	indexed_papers = [paper for paper, _ in prepared]
 
-	indexed_count = 0
-	for (paper, combined_text), embedding in zip(prepared, embeddings):
-		collection.upsert(
-			ids=[str(paper.get("arxiv_id", ""))],
-			embeddings=[embedding],
-			documents=[combined_text],
-			metadatas=[
-				{
-					"arxiv_id": str(paper.get("arxiv_id", "")),
-					"title": str(paper.get("title", "")),
-					"authors": _to_joined_string(paper.get("authors")),
-					"published": str(paper.get("published", "")),
-					"categories": _to_joined_string(paper.get("categories")),
-					"pdf_url": str(paper.get("pdf_url", "")),
-					"entry_url": str(paper.get("entry_url", "")),
-				}
-			],
-		)
-		indexed_count += 1
-
-	return indexed_count
+	return vector_store.upsert_papers(indexed_papers, embeddings)
 
 
 def embed_query(query: str) -> list[float]:

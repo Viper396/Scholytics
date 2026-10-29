@@ -5,8 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from db.chroma_client import get_collection
 from routers.graph import router as graph_router
+from routers.ingest import router as ingest_router
 from routers.papers import router as papers_router
 from routers.search import router as search_router
 
@@ -28,6 +28,34 @@ def get_allowed_origins() -> list[str]:
 	return [frontend_origin]
 
 
+def _build_vector_store():
+	"""
+	Instantiate and return the configured vector-store adapter.
+
+	The backend is selected by the ``VECTOR_STORE_BACKEND`` environment variable:
+
+	* ``"chroma"``   – ChromaDB EphemeralClient (default; no credentials needed).
+	* ``"pinecone"`` – Pinecone serverless index (requires ``PINECONE_API_KEY``).
+
+	Raises ``RuntimeError`` with a clear, actionable message if the selected
+	backend cannot be initialised.  Secrets are never included in log output.
+	"""
+	backend = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
+
+	if backend == "pinecone":
+		from db.pinecone_adapter import PineconeAdapter  # noqa: PLC0415
+		return PineconeAdapter()
+
+	if backend == "chroma":
+		from db.chroma_adapter import ChromaAdapter  # noqa: PLC0415
+		return ChromaAdapter()
+
+	raise RuntimeError(
+		f"Unknown VECTOR_STORE_BACKEND={backend!r}. "
+		"Supported values: 'chroma' (default), 'pinecone'."
+	)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 	# Validate required configuration at startup.
@@ -38,13 +66,16 @@ async def lifespan(app: FastAPI):
 			"Set GROQ_API_KEY to enable these features."
 		)
 
-	# Initialize ChromaDB collection.
+	backend_name = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
+	logger.info("Vector store backend selected: %s", backend_name)
+
+	# Initialise vector store.
 	try:
-		app.state.chroma_collection = get_collection()
-		logger.info("ChromaDB collection initialized successfully.")
+		app.state.vector_store = _build_vector_store()
+		logger.info("Vector store initialised successfully (%s).", backend_name)
 	except Exception as exc:  # noqa: BLE001
-		logger.error("Failed to initialize ChromaDB collection: %s", exc)
-		app.state.chroma_collection = None
+		logger.error("Failed to initialise vector store (%s): %s", backend_name, exc)
+		app.state.vector_store = None
 
 	logger.info("Scholytics backend started.")
 	yield
@@ -75,6 +106,7 @@ app.add_middleware(
 app.include_router(search_router)
 app.include_router(papers_router)
 app.include_router(graph_router)
+app.include_router(ingest_router)
 
 
 @app.get("/", tags=["health"])
@@ -90,18 +122,20 @@ async def readiness_check() -> dict[str, object]:
 
 	Does NOT make external network calls on every request.
 	"""
-	collection = getattr(app.state, "chroma_collection", None)
+	vector_store = getattr(app.state, "vector_store", None)
 	groq_key_configured = bool(os.getenv("GROQ_API_KEY", "").strip())
+	backend_name = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower() or "chroma"
 
 	issues: list[str] = []
-	if collection is None:
-		issues.append("ChromaDB collection is unavailable")
+	if vector_store is None:
+		issues.append(f"Vector store ({backend_name}) is unavailable")
 	if not groq_key_configured:
 		issues.append("GROQ_API_KEY is not configured")
 
 	return {
 		"status": "ready" if not issues else "degraded",
-		"chroma": "ok" if collection is not None else "unavailable",
+		"vector_store": "ok" if vector_store is not None else "unavailable",
+		"vector_store_backend": backend_name,
 		"groq_configured": groq_key_configured,
 		"issues": issues,
 	}

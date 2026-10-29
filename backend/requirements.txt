@@ -7,3 +7,4 @@ fastembed; python_version < "3.13"
 groq
 python-dotenv
 arxiv
+pinecone>=5.0.0
