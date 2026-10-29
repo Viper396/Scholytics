@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from db.vector_store import canonicalize_arxiv_id
-from services import arxiv_client, embedder, ingestion, summarizer
+from services import arxiv_client, bm25, embedder, fusion, ingestion, summarizer
 
 logger = logging.getLogger(__name__)
 
@@ -188,18 +188,54 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 		return {"query": query, "results": [], "total": 0}
 
 	# ------------------------------------------------------------------
-	# Step 4: Semantic Reranking against Vector Store
-	# Matches candidate vectors against the embedded query.
+	# Step 4: Hybrid Reranking (Dense Semantic + BM25 Keyword via RRF)
+	# Combines dense vector similarity with exact keyword scoring.
+	# Degrades gracefully if either retrieval channel is unavailable.
 	# ------------------------------------------------------------------
+	dense_matches: list[dict[str, Any]] = []
 	try:
-		matches = vector_store.query(
+		dense_matches = vector_store.query(
 			query_vector=query_vector,
 			n_results=min(payload.max_results, len(canonical_ids)),
 			filter_ids=canonical_ids,
 		)
 	except Exception as exc:  # noqa: BLE001
 		logger.error("Vector store query failed: %s", exc)
-		raise HTTPException(status_code=500, detail="Search pipeline failed") from exc
+
+	bm25_matches: list[dict[str, Any]] = []
+	try:
+		bm25_index = bm25.get_bm25_index()
+		bm25_matches = bm25_index.search(
+			query=query,
+			top_k=min(payload.max_results, len(canonical_ids)),
+			filter_ids=canonical_ids,
+		)
+	except Exception as exc:  # noqa: BLE001
+		logger.error("BM25 keyword search failed: %s", exc)
+
+	# Fused rank resolution using tuned parameters (k=10.0, wd=1.0, wk=1.0)
+	if dense_matches and bm25_matches:
+		matches = fusion.reciprocal_rank_fusion(
+			dense_results=dense_matches,
+			keyword_results=bm25_matches,
+			k=10.0,
+			weight_dense=1.0,
+			weight_keyword=1.0,
+			top_k=payload.max_results,
+		)
+		retrieval_mode = "hybrid"
+	elif dense_matches:
+		matches = dense_matches
+		retrieval_mode = "dense_only"
+	elif bm25_matches:
+		matches = bm25_matches
+		retrieval_mode = "keyword_only"
+	else:
+		matches = []
+		retrieval_mode = "none"
+
+	if not matches and not dense_matches and not bm25_matches:
+		raise HTTPException(status_code=500, detail="Search pipeline failed")
 
 	papers_by_id: dict[str, dict[str, Any]] = {}
 	for paper in papers:
@@ -251,6 +287,7 @@ async def search(payload: SearchRequest, request: Request) -> dict[str, Any]:
 		"query": query,
 		"results": results,
 		"total": len(results),
+		"retrieval_mode": retrieval_mode,
 		"ingestion": {
 			"discovered": ingestion_stats.discovered,
 			"already_indexed": ingestion_stats.already_indexed,

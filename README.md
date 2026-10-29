@@ -58,7 +58,11 @@ Scholytics separates **Discovery**, **Ingestion**, and **Retrieval** into three 
    - Papers matching stored version and SHA-256 content fingerprints are **skipped** — embedding is avoided entirely.
    - New or updated papers (e.g. revision `v2` or modified abstract) are claimed through an in-memory concurrency coordinator.
    - Up to a bounded batch ($\le 10$ papers per user request) are embedded in memory with FastEmbed (`BAAI/bge-small-en-v1.5`, 384 dimensions) and upserted into Pinecone/Chroma.
-3. **Retrieval & Reranking**: The user's query is embedded, and the vector store ranks candidate records by cosine similarity ($[0.0, 1.0]$). Exact date boundaries and category criteria are verified at the application level before returning results.
+3. **Hybrid Retrieval & Reciprocal Rank Fusion (RRF)**: The user's query is routed simultaneously to:
+   - **Dense Retrieval**: Encodes query via FastEmbed and ranks vectors by cosine similarity.
+   - **Keyword Retrieval**: Tokenizes query and ranks papers using a local in-memory Okapi BM25+ engine.
+   - **Fusion**: Fuses both ranked lists using Reciprocal Rank Fusion (RRF) with tuned parameters ($k=10.0, w_{\text{dense}}=1.0, w_{\text{bm25}}=1.0$), ensuring exact technical terms (e.g. *LoRA*, *DPO*, *ViT*) receive a ranking boost without sacrificing semantic generalization.
+   - Exact date boundaries and category criteria are verified at the application level before returning results.
 4. **Source-Grounded Topic Synthesis**: Users can request a streaming synthesis of selected papers. The backend initiates a Server-Sent Events (`text/event-stream`) stream powered by Groq (`llama-3.1-8b-instant`), enforcing strict system prompt boundaries and requiring inline `[SOURCE N]` citations mapped to the provided paper abstracts.
 5. **Interactive Research Graph**: Selected papers are visualized in an interactive D3 force-directed graph with pan, zoom, node dragging, category color-coding, and relationship filtering.
 

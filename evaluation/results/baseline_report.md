@@ -1,6 +1,6 @@
 # Scholytics Baseline Retrieval Evaluation Report
 
-**Execution Timestamp**: `2026-10-29T08:45:09.106634+00:00`  
+**Execution Timestamp**: `2026-10-29T09:16:37.495461+00:00`  
 **Pipeline**: `FastEmbed (BAAI/bge-small-en-v1.5) + ChromaDB EphemeralClient (cosine)`  
 **Dense Vector Dimension**: `384`  
 **Total Queries**: `8` | **Failure Rate**: `0.0%`  
@@ -28,11 +28,11 @@
 
 | Stage | Mean (ms) | Median (p50) | 95th Percentile (p95) | Min (ms) | Max (ms) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Candidate Embedding (FastEmbed ONNX)** | 668.75 ms | 463.36 ms | 1294.11 ms | 268.86 ms | 1294.62 ms |
-| **Vector Upsert (ChromaDB Ephemeral)** | 31.72 ms | 30.57 ms | 46.23 ms | 17.63 ms | 46.86 ms |
-| **Query Embedding (FastEmbed)** | 17.54 ms | 13.41 ms | 37.95 ms | 4.8 ms | 42.26 ms |
-| **Vector Query & Cosine Ranking** | 3.56 ms | 2.16 ms | 6.48 ms | 1.66 ms | 6.61 ms |
-| **Total Pipeline Latency** | 724.54 ms | 494.02 ms | 1383.71 ms | 309.44 ms | 1390.28 ms |
+| **Candidate Embedding (FastEmbed ONNX)** | 854.5 ms | 852.05 ms | 1444.12 ms | 306.61 ms | 1451.73 ms |
+| **Vector Upsert (ChromaDB Ephemeral)** | 33.85 ms | 29.81 ms | 55.09 ms | 17.11 ms | 58.18 ms |
+| **Query Embedding (FastEmbed)** | 19.28 ms | 18.21 ms | 35.22 ms | 4.31 ms | 35.42 ms |
+| **Vector Query & Cosine Ranking** | 2.93 ms | 2.66 ms | 4.53 ms | 1.96 ms | 4.68 ms |
+| **Total Pipeline Latency** | 914.1 ms | 910.55 ms | 1539.48 ms | 334.5 ms | 1554.79 ms |
 
 ---
 
@@ -40,14 +40,14 @@
 
 | ID | Query | Domain | P@3 | R@3 | MRR | nDCG@3 | Latency (ms) |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| `q1` | Retrieval-augmented generation for knowledge-intensive NLP tasks | Retrieval-Augmented Generation | 1.00 | 0.75 | 1.00 | 1.0000 | 539.5 ms |
-| `q2` | Attention mechanisms and transformer architecture in deep learning | Transformers & Attention | 0.67 | 0.40 | 1.00 | 0.5742 | 309.4 ms |
-| `q3` | Vision transformers for image classification and recognition | Computer Vision | 1.00 | 0.75 | 1.00 | 1.0000 | 324.1 ms |
-| `q4` | Parameter-efficient fine-tuning and low-rank adaptation of large language models | Model Adaptation & Efficiency | 1.00 | 0.75 | 1.00 | 0.8046 | 448.5 ms |
-| `q5` | Self-supervised visual representation learning with contrastive methods | Self-Supervised Learning | 1.00 | 0.60 | 1.00 | 1.0000 | 343.2 ms |
-| `q6` | Direct preference optimization and reinforcement learning from human feedback | Alignment & Preference Learning | 0.67 | 1.00 | 1.00 | 0.9341 | 1371.5 ms |
-| `q7` | Diffusion models for high-resolution image synthesis and generation | Generative Diffusion Models | 1.00 | 1.00 | 1.00 | 0.9595 | 1390.3 ms |
-| `q8` | Graph neural networks for relational learning and molecular property prediction | Graph Representation Learning | 1.00 | 0.75 | 1.00 | 0.8452 | 1069.7 ms |
+| `q1` | Retrieval-augmented generation for knowledge-intensive NLP tasks | Retrieval-Augmented Generation | 1.00 | 0.75 | 1.00 | 1.0000 | 563.7 ms |
+| `q2` | Attention mechanisms and transformer architecture in deep learning | Transformers & Attention | 0.67 | 0.40 | 1.00 | 0.5742 | 334.5 ms |
+| `q3` | Vision transformers for image classification and recognition | Computer Vision | 1.00 | 0.75 | 1.00 | 1.0000 | 341.0 ms |
+| `q4` | Parameter-efficient fine-tuning and low-rank adaptation of large language models | Model Adaptation & Efficiency | 1.00 | 0.75 | 1.00 | 0.8046 | 484.5 ms |
+| `q5` | Self-supervised visual representation learning with contrastive methods | Self-Supervised Learning | 1.00 | 0.60 | 1.00 | 1.0000 | 1265.9 ms |
+| `q6` | Direct preference optimization and reinforcement learning from human feedback | Alignment & Preference Learning | 0.67 | 1.00 | 1.00 | 0.9341 | 1554.8 ms |
+| `q7` | Diffusion models for high-resolution image synthesis and generation | Generative Diffusion Models | 1.00 | 1.00 | 1.00 | 0.9595 | 1511.0 ms |
+| `q8` | Graph neural networks for relational learning and molecular property prediction | Graph Representation Learning | 1.00 | 0.75 | 1.00 | 0.8452 | 1257.4 ms |
 
 ---
 

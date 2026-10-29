@@ -192,6 +192,13 @@ async def ingest_candidates(
     # 2. Query vector store for existing records by canonical ID
     existing_records = vector_store.fetch_records(canonical_ids)
 
+    # Populate BM25 keyword index with all discovered candidate papers
+    from services.bm25 import get_bm25_index  # noqa: PLC0415
+    bm25_index = get_bm25_index()
+    for cid, paper in canonical_map.items():
+        text = f"{paper.get('title', '')}. {paper.get('abstract', '')}".strip()
+        bm25_index.add_document(doc_id=cid, text=text, metadata=paper)
+
     # 3. Partition into papers needing indexing vs. already indexed
     to_index_candidates: list[dict[str, Any]] = []
     for cid, paper in canonical_map.items():

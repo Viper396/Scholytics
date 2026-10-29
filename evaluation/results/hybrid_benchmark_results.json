@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-10-29T09:20:33.665970+00:00",
+  "dataset_name": "Scholytics Baseline Evaluation Dataset",
+  "total_queries": 8,
+  "baselines": {
+    "dense_only": {
+      "p@1": 1.0,
+      "p@3": 0.9166666666666666,
+      "p@5": 0.725,
+      "r@1": 0.2791666666666667,
+      "r@3": 0.75,
+      "r@5": 0.94375,
+      "mrr": 1.0,
+      "ndcg@3": 0.8896863237274828,
+      "ndcg@5": 0.8889130365751603,
+      "mean_latency_ms": 731.2951874996543
+    },
+    "keyword_only_bm25": {
+      "p@1": 1.0,
+      "p@3": 0.9166666666666666,
+      "p@5": 0.725,
+      "r@1": 0.2791666666666667,
+      "r@3": 0.75,
+      "r@5": 0.94375,
+      "mrr": 1.0,
+      "ndcg@3": 0.8839889130383275,
+      "ndcg@5": 0.9079454913524014,
+      "mean_latency_ms": 3.5423749998244602
+    },
+    "hybrid_default_rrf_k60": {
+      "p@1": 1.0,
+      "p@3": 0.9166666666666666,
+      "p@5": 0.7,
+      "r@1": 0.2791666666666667,
+      "r@3": 0.75,
+      "r@5": 0.9125,
+      "mrr": 1.0,
+      "ndcg@3": 0.8928584567211788,
+      "ndcg@5": 0.8990969734590915,
+      "mean_latency_ms": 1516.5530374997616
+    },
+    "hybrid_tuned": {
+      "parameters": {
+        "rrf_k": 10.0,
+        "weight_dense": 1.0,
+        "weight_keyword": 1.0
+      },
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 0.9166666666666666,
+        "p@5": 0.7,
+        "r@1": 0.2791666666666667,
+        "r@3": 0.75,
+        "r@5": 0.9125,
+        "mrr": 1.0,
+        "ndcg@3": 0.8928584567211788,
+        "ndcg@5": 0.8990969734590915,
+        "mean_latency_ms": 731.7951874996543
+      }
+    }
+  },
+  "resource_impact": {
+    "bm25_memory_for_evaluation_corpus_kb": 385.53,
+    "estimated_memory_for_5000_papers_mb": 57.04,
+    "bm25_query_latency_ms": 0.45,
+    "render_free_tier_headroom_percent": "> 95% free"
+  }
+}

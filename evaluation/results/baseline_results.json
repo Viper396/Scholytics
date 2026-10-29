@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "timestamp": "2026-10-29T08:45:09.106634+00:00",
+    "timestamp": "2026-10-29T09:16:37.495461+00:00",
     "pipeline": "FastEmbed (BAAI/bge-small-en-v1.5) + ChromaDB EphemeralClient (cosine)",
     "vector_dimension": 384,
     "relevance_threshold": 2,
@@ -22,39 +22,39 @@
   },
   "latencies": {
     "candidate_embedding": {
-      "mean_ms": 668.75,
-      "p50_ms": 463.36,
-      "p95_ms": 1294.11,
-      "min_ms": 268.86,
-      "max_ms": 1294.62
+      "mean_ms": 854.5,
+      "p50_ms": 852.05,
+      "p95_ms": 1444.12,
+      "min_ms": 306.61,
+      "max_ms": 1451.73
     },
     "indexing": {
-      "mean_ms": 31.72,
-      "p50_ms": 30.57,
-      "p95_ms": 46.23,
-      "min_ms": 17.63,
-      "max_ms": 46.86
+      "mean_ms": 33.85,
+      "p50_ms": 29.81,
+      "p95_ms": 55.09,
+      "min_ms": 17.11,
+      "max_ms": 58.18
     },
     "query_embedding": {
-      "mean_ms": 17.54,
-      "p50_ms": 13.41,
-      "p95_ms": 37.95,
-      "min_ms": 4.8,
-      "max_ms": 42.26
+      "mean_ms": 19.28,
+      "p50_ms": 18.21,
+      "p95_ms": 35.22,
+      "min_ms": 4.31,
+      "max_ms": 35.42
     },
     "vector_query": {
-      "mean_ms": 3.56,
-      "p50_ms": 2.16,
-      "p95_ms": 6.48,
-      "min_ms": 1.66,
-      "max_ms": 6.61
+      "mean_ms": 2.93,
+      "p50_ms": 2.66,
+      "p95_ms": 4.53,
+      "min_ms": 1.96,
+      "max_ms": 4.68
     },
     "total": {
-      "mean_ms": 724.54,
-      "p50_ms": 494.02,
-      "p95_ms": 1383.71,
-      "min_ms": 309.44,
-      "max_ms": 1390.28
+      "mean_ms": 914.1,
+      "p50_ms": 910.55,
+      "p95_ms": 1539.48,
+      "min_ms": 334.5,
+      "max_ms": 1554.79
     }
   },
   "per_query_results": [
@@ -76,11 +76,11 @@
         "ndcg@5": 0.973494864667227
       },
       "latencies_ms": {
-        "candidate_embedding": 504.6390000006795,
-        "indexing": 21.21659999829717,
-        "query_embedding": 4.7986000008677365,
-        "vector_query": 5.933800001002965,
-        "total": 539.4930000002205
+        "candidate_embedding": 533.2400000006601,
+        "indexing": 19.766100000197184,
+        "query_embedding": 5.243999999947846,
+        "vector_query": 3.1423000000359025,
+        "total": 563.7115999998059
       },
       "ranked_results": [
         {
@@ -143,11 +143,11 @@
         "ndcg@5": 0.6421390127785805
       },
       "latencies_ms": {
-        "candidate_embedding": 279.6293000010337,
-        "indexing": 20.646099999794387,
-        "query_embedding": 5.5636000015510945,
-        "vector_query": 1.6562999990128446,
-        "total": 309.4443999998475
+        "candidate_embedding": 306.614900000568,
+        "indexing": 19.10430000134511,
+        "query_embedding": 5.057399999714107,
+        "vector_query": 2.40000000121654,
+        "total": 334.4984999985172
       },
       "ranked_results": [
         {
@@ -210,11 +210,11 @@
         "ndcg@5": 0.9939948506250893
       },
       "latencies_ms": {
-        "candidate_embedding": 293.86909999993804,
-        "indexing": 20.206400000461144,
-        "query_embedding": 5.414299999756622,
-        "vector_query": 2.3366000004898524,
-        "total": 324.12939999994705
+        "candidate_embedding": 310.8741000014561,
+        "indexing": 19.400400000449736,
+        "query_embedding": 4.3060000007244525,
+        "vector_query": 2.9160000012780074,
+        "total": 340.9969000003912
       },
       "ranked_results": [
         {
@@ -277,11 +277,11 @@
         "ndcg@5": 0.7680725246129131
       },
       "latencies_ms": {
-        "candidate_embedding": 422.08600000049046,
-        "indexing": 17.62550000057672,
-        "query_embedding": 4.942800000208081,
-        "vector_query": 1.85090000013588,
-        "total": 448.53859999966517
+        "candidate_embedding": 459.3698000007862,
+        "indexing": 17.111600000134786,
+        "query_embedding": 4.62359999983164,
+        "vector_query": 2.0827999996981816,
+        "total": 484.46189999958733
       },
       "ranked_results": [
         {
@@ -344,11 +344,11 @@
         "ndcg@5": 1.0
       },
       "latencies_ms": {
-        "candidate_embedding": 268.8590999987355,
-        "indexing": 45.0767000002088,
-        "query_embedding": 21.25300000079733,
-        "vector_query": 6.217800000740681,
-        "total": 343.1686999992962
+        "candidate_embedding": 1173.3390999997937,
+        "indexing": 48.02590000144846,
+        "query_embedding": 35.42079999897396,
+        "vector_query": 4.678299999795854,
+        "total": 1265.909699999611
       },
       "ranked_results": [
         {
@@ -411,11 +411,11 @@
         "ndcg@5": 0.9363759000898353
       },
       "latencies_ms": {
-        "candidate_embedding": 1293.1688000007853,
-        "indexing": 39.92620000099123,
-        "query_embedding": 29.959900000903872,
-        "vector_query": 1.8662000002223067,
-        "total": 1371.507300000303
+        "candidate_embedding": 1451.7292000000452,
+        "indexing": 58.18069999986619,
+        "query_embedding": 31.18230000109179,
+        "vector_query": 4.26789999983157,
+        "total": 1554.7855999993772
       },
       "ranked_results": [
         {
@@ -478,11 +478,11 @@
         "ndcg@5": 0.9607618369839247
       },
       "latencies_ms": {
-        "candidate_embedding": 1294.6226000003662,
-        "indexing": 46.85609999978624,
-        "query_embedding": 42.25560000122641,
-        "vector_query": 1.9762000010814518,
-        "total": 1390.2782999994088
+        "candidate_embedding": 1429.9815999984276,
+        "indexing": 39.84599999967031,
+        "query_embedding": 34.844399999201414,
+        "vector_query": 1.9643000014184508,
+        "total": 1511.0494000000472
       },
       "ranked_results": [
         {
@@ -545,11 +545,11 @@
         "ndcg@5": 0.836465302843712
       },
       "latencies_ms": {
-        "candidate_embedding": 993.1161000004067,
-        "indexing": 42.22900000058871,
-        "query_embedding": 26.165799999944284,
-        "vector_query": 6.613999999899534,
-        "total": 1069.7251000001415
+        "candidate_embedding": 1170.8610999994562,
+        "indexing": 49.34350000075938,
+        "query_embedding": 33.557000000655535,
+        "vector_query": 1.9909000002371613,
+        "total": 1257.390700000542
       },
       "ranked_results": [
         {
