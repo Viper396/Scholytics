@@ -1,0 +1,598 @@
+{
+  "metadata": {
+    "timestamp": "2026-10-29T08:45:09.106634+00:00",
+    "pipeline": "FastEmbed (BAAI/bge-small-en-v1.5) + ChromaDB EphemeralClient (cosine)",
+    "vector_dimension": 384,
+    "relevance_threshold": 2,
+    "total_queries": 8,
+    "successful_queries": 8,
+    "failed_queries": 0,
+    "failure_rate": 0.0
+  },
+  "macro_metrics": {
+    "mean_precision@1": 1.0,
+    "mean_precision@3": 0.9166666666666666,
+    "mean_precision@5": 0.725,
+    "mean_recall@1": 0.2791666666666667,
+    "mean_recall@3": 0.75,
+    "mean_recall@5": 0.94375,
+    "mean_reciprocal_rank": 1.0,
+    "mean_ndcg@3": 0.8896863237274828,
+    "mean_ndcg@5": 0.8889130365751603
+  },
+  "latencies": {
+    "candidate_embedding": {
+      "mean_ms": 668.75,
+      "p50_ms": 463.36,
+      "p95_ms": 1294.11,
+      "min_ms": 268.86,
+      "max_ms": 1294.62
+    },
+    "indexing": {
+      "mean_ms": 31.72,
+      "p50_ms": 30.57,
+      "p95_ms": 46.23,
+      "min_ms": 17.63,
+      "max_ms": 46.86
+    },
+    "query_embedding": {
+      "mean_ms": 17.54,
+      "p50_ms": 13.41,
+      "p95_ms": 37.95,
+      "min_ms": 4.8,
+      "max_ms": 42.26
+    },
+    "vector_query": {
+      "mean_ms": 3.56,
+      "p50_ms": 2.16,
+      "p95_ms": 6.48,
+      "min_ms": 1.66,
+      "max_ms": 6.61
+    },
+    "total": {
+      "mean_ms": 724.54,
+      "p50_ms": 494.02,
+      "p95_ms": 1383.71,
+      "min_ms": 309.44,
+      "max_ms": 1390.28
+    }
+  },
+  "per_query_results": [
+    {
+      "query_id": "q1",
+      "query": "Retrieval-augmented generation for knowledge-intensive NLP tasks",
+      "domain": "Retrieval-Augmented Generation",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 1.0,
+        "p@5": 0.8,
+        "r@1": 0.25,
+        "r@3": 0.75,
+        "r@5": 1.0,
+        "mrr": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 0.973494864667227
+      },
+      "latencies_ms": {
+        "candidate_embedding": 504.6390000006795,
+        "indexing": 21.21659999829717,
+        "query_embedding": 4.7986000008677365,
+        "vector_query": 5.933800001002965,
+        "total": 539.4930000002205
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2005.11401",
+          "distance": 0.11648833751678467,
+          "relevance_score": 0.8835116624832153
+        },
+        {
+          "arxiv_id": "2312.10997",
+          "distance": 0.17161762714385986,
+          "relevance_score": 0.8283823728561401
+        },
+        {
+          "arxiv_id": "2212.10509",
+          "distance": 0.20992207527160645,
+          "relevance_score": 0.7900779247283936
+        },
+        {
+          "arxiv_id": "2004.04906",
+          "distance": 0.24101102352142334,
+          "relevance_score": 0.7589889764785767
+        },
+        {
+          "arxiv_id": "2106.09685",
+          "distance": 0.26659250259399414,
+          "relevance_score": 0.7334074974060059
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.3121154308319092,
+          "relevance_score": 0.6878845691680908
+        },
+        {
+          "arxiv_id": "1512.03385",
+          "distance": 0.4176374673843384,
+          "relevance_score": 0.5823625326156616
+        },
+        {
+          "arxiv_id": "2006.11239",
+          "distance": 0.42205190658569336,
+          "relevance_score": 0.5779480934143066
+        }
+      ]
+    },
+    {
+      "query_id": "q2",
+      "query": "Attention mechanisms and transformer architecture in deep learning",
+      "domain": "Transformers & Attention",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 0.6666666666666666,
+        "p@5": 0.8,
+        "r@1": 0.2,
+        "r@3": 0.4,
+        "r@5": 0.8,
+        "mrr": 1.0,
+        "ndcg@3": 0.5741883268371216,
+        "ndcg@5": 0.6421390127785805
+      },
+      "latencies_ms": {
+        "candidate_embedding": 279.6293000010337,
+        "indexing": 20.646099999794387,
+        "query_embedding": 5.5636000015510945,
+        "vector_query": 1.6562999990128446,
+        "total": 309.4443999998475
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2010.11929",
+          "distance": 0.19869190454483032,
+          "relevance_score": 0.8013080954551697
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.20978516340255737,
+          "relevance_score": 0.7902148365974426
+        },
+        {
+          "arxiv_id": "1512.03385",
+          "distance": 0.25462019443511963,
+          "relevance_score": 0.7453798055648804
+        },
+        {
+          "arxiv_id": "1810.04805",
+          "distance": 0.2924840450286865,
+          "relevance_score": 0.7075159549713135
+        },
+        {
+          "arxiv_id": "1910.10683",
+          "distance": 0.3103891611099243,
+          "relevance_score": 0.6896108388900757
+        },
+        {
+          "arxiv_id": "2005.11401",
+          "distance": 0.3168982267379761,
+          "relevance_score": 0.6831017732620239
+        },
+        {
+          "arxiv_id": "1409.0473",
+          "distance": 0.3486126661300659,
+          "relevance_score": 0.6513873338699341
+        },
+        {
+          "arxiv_id": "2006.11239",
+          "distance": 0.35240137577056885,
+          "relevance_score": 0.6475986242294312
+        }
+      ]
+    },
+    {
+      "query_id": "q3",
+      "query": "Vision transformers for image classification and recognition",
+      "domain": "Computer Vision",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 1.0,
+        "p@5": 0.8,
+        "r@1": 0.25,
+        "r@3": 0.75,
+        "r@5": 1.0,
+        "mrr": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 0.9939948506250893
+      },
+      "latencies_ms": {
+        "candidate_embedding": 293.86909999993804,
+        "indexing": 20.206400000461144,
+        "query_embedding": 5.414299999756622,
+        "vector_query": 2.3366000004898524,
+        "total": 324.12939999994705
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2010.11929",
+          "distance": 0.11799740791320801,
+          "relevance_score": 0.882002592086792
+        },
+        {
+          "arxiv_id": "2103.14030",
+          "distance": 0.19003725051879883,
+          "relevance_score": 0.8099627494812012
+        },
+        {
+          "arxiv_id": "2012.12877",
+          "distance": 0.2052289843559265,
+          "relevance_score": 0.7947710156440735
+        },
+        {
+          "arxiv_id": "1512.03385",
+          "distance": 0.22533726692199707,
+          "relevance_score": 0.7746627330780029
+        },
+        {
+          "arxiv_id": "2103.00020",
+          "distance": 0.2298358678817749,
+          "relevance_score": 0.7701641321182251
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.3325866460800171,
+          "relevance_score": 0.6674133539199829
+        },
+        {
+          "arxiv_id": "2106.09685",
+          "distance": 0.3525826930999756,
+          "relevance_score": 0.6474173069000244
+        },
+        {
+          "arxiv_id": "2005.11401",
+          "distance": 0.4369243383407593,
+          "relevance_score": 0.5630756616592407
+        }
+      ]
+    },
+    {
+      "query_id": "q4",
+      "query": "Parameter-efficient fine-tuning and low-rank adaptation of large language models",
+      "domain": "Model Adaptation & Efficiency",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 1.0,
+        "p@5": 0.6,
+        "r@1": 0.25,
+        "r@3": 0.75,
+        "r@5": 0.75,
+        "mrr": 1.0,
+        "ndcg@3": 0.8046129061698147,
+        "ndcg@5": 0.7680725246129131
+      },
+      "latencies_ms": {
+        "candidate_embedding": 422.08600000049046,
+        "indexing": 17.62550000057672,
+        "query_embedding": 4.942800000208081,
+        "vector_query": 1.85090000013588,
+        "total": 448.53859999966517
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2106.09685",
+          "distance": 0.0994722843170166,
+          "relevance_score": 0.9005277156829834
+        },
+        {
+          "arxiv_id": "2110.04366",
+          "distance": 0.16252946853637695,
+          "relevance_score": 0.837470531463623
+        },
+        {
+          "arxiv_id": "1902.00751",
+          "distance": 0.16475963592529297,
+          "relevance_score": 0.835240364074707
+        },
+        {
+          "arxiv_id": "2109.01652",
+          "distance": 0.18120086193084717,
+          "relevance_score": 0.8187991380691528
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.2185819149017334,
+          "relevance_score": 0.7814180850982666
+        },
+        {
+          "arxiv_id": "2305.14314",
+          "distance": 0.22014963626861572,
+          "relevance_score": 0.7798503637313843
+        },
+        {
+          "arxiv_id": "2010.11929",
+          "distance": 0.35568463802337646,
+          "relevance_score": 0.6443153619766235
+        },
+        {
+          "arxiv_id": "2002.05709",
+          "distance": 0.3693450689315796,
+          "relevance_score": 0.6306549310684204
+        }
+      ]
+    },
+    {
+      "query_id": "q5",
+      "query": "Self-supervised visual representation learning with contrastive methods",
+      "domain": "Self-Supervised Learning",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 1.0,
+        "p@5": 1.0,
+        "r@1": 0.2,
+        "r@3": 0.6,
+        "r@5": 1.0,
+        "mrr": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latencies_ms": {
+        "candidate_embedding": 268.8590999987355,
+        "indexing": 45.0767000002088,
+        "query_embedding": 21.25300000079733,
+        "vector_query": 6.217800000740681,
+        "total": 343.1686999992962
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2002.05709",
+          "distance": 0.10775524377822876,
+          "relevance_score": 0.8922447562217712
+        },
+        {
+          "arxiv_id": "1911.05722",
+          "distance": 0.16896557807922363,
+          "relevance_score": 0.8310344219207764
+        },
+        {
+          "arxiv_id": "1807.03748",
+          "distance": 0.2003815770149231,
+          "relevance_score": 0.7996184229850769
+        },
+        {
+          "arxiv_id": "2006.07733",
+          "distance": 0.20567864179611206,
+          "relevance_score": 0.7943213582038879
+        },
+        {
+          "arxiv_id": "2103.00020",
+          "distance": 0.2157641053199768,
+          "relevance_score": 0.7842358946800232
+        },
+        {
+          "arxiv_id": "1512.03385",
+          "distance": 0.2614642381668091,
+          "relevance_score": 0.7385357618331909
+        },
+        {
+          "arxiv_id": "2106.09685",
+          "distance": 0.36175668239593506,
+          "relevance_score": 0.6382433176040649
+        },
+        {
+          "arxiv_id": "2005.11401",
+          "distance": 0.38478708267211914,
+          "relevance_score": 0.6152129173278809
+        }
+      ]
+    },
+    {
+      "query_id": "q6",
+      "query": "Direct preference optimization and reinforcement learning from human feedback",
+      "domain": "Alignment & Preference Learning",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 0.6666666666666666,
+        "p@5": 0.4,
+        "r@1": 0.5,
+        "r@3": 1.0,
+        "r@5": 1.0,
+        "mrr": 1.0,
+        "ndcg@3": 0.9340764506431116,
+        "ndcg@5": 0.9363759000898353
+      },
+      "latencies_ms": {
+        "candidate_embedding": 1293.1688000007853,
+        "indexing": 39.92620000099123,
+        "query_embedding": 29.959900000903872,
+        "vector_query": 1.8662000002223067,
+        "total": 1371.507300000303
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2305.18290",
+          "distance": 0.15091979503631592,
+          "relevance_score": 0.8490802049636841
+        },
+        {
+          "arxiv_id": "2302.08582",
+          "distance": 0.19508123397827148,
+          "relevance_score": 0.8049187660217285
+        },
+        {
+          "arxiv_id": "2203.02155",
+          "distance": 0.23983347415924072,
+          "relevance_score": 0.7601665258407593
+        },
+        {
+          "arxiv_id": "2106.09685",
+          "distance": 0.33726000785827637,
+          "relevance_score": 0.6627399921417236
+        },
+        {
+          "arxiv_id": "2005.11401",
+          "distance": 0.35627126693725586,
+          "relevance_score": 0.6437287330627441
+        },
+        {
+          "arxiv_id": "2006.11239",
+          "distance": 0.3879163861274719,
+          "relevance_score": 0.6120836138725281
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.39256715774536133,
+          "relevance_score": 0.6074328422546387
+        },
+        {
+          "arxiv_id": "1512.03385",
+          "distance": 0.4088704586029053,
+          "relevance_score": 0.5911295413970947
+        }
+      ]
+    },
+    {
+      "query_id": "q7",
+      "query": "Diffusion models for high-resolution image synthesis and generation",
+      "domain": "Generative Diffusion Models",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 1.0,
+        "p@5": 0.6,
+        "r@1": 0.3333333333333333,
+        "r@3": 1.0,
+        "r@5": 1.0,
+        "mrr": 1.0,
+        "ndcg@3": 0.9594535145926796,
+        "ndcg@5": 0.9607618369839247
+      },
+      "latencies_ms": {
+        "candidate_embedding": 1294.6226000003662,
+        "indexing": 46.85609999978624,
+        "query_embedding": 42.25560000122641,
+        "vector_query": 1.9762000010814518,
+        "total": 1390.2782999994088
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "2112.10752",
+          "distance": 0.11652076244354248,
+          "relevance_score": 0.8834792375564575
+        },
+        {
+          "arxiv_id": "2010.02502",
+          "distance": 0.16849595308303833,
+          "relevance_score": 0.8315040469169617
+        },
+        {
+          "arxiv_id": "2006.11239",
+          "distance": 0.17953938245773315,
+          "relevance_score": 0.8204606175422668
+        },
+        {
+          "arxiv_id": "1406.2661",
+          "distance": 0.2999765872955322,
+          "relevance_score": 0.7000234127044678
+        },
+        {
+          "arxiv_id": "2010.11929",
+          "distance": 0.3090696334838867,
+          "relevance_score": 0.6909303665161133
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.3567622900009155,
+          "relevance_score": 0.6432377099990845
+        },
+        {
+          "arxiv_id": "2106.09685",
+          "distance": 0.37321245670318604,
+          "relevance_score": 0.626787543296814
+        },
+        {
+          "arxiv_id": "2005.11401",
+          "distance": 0.395133376121521,
+          "relevance_score": 0.604866623878479
+        }
+      ]
+    },
+    {
+      "query_id": "q8",
+      "query": "Graph neural networks for relational learning and molecular property prediction",
+      "domain": "Graph Representation Learning",
+      "status": "success",
+      "retrieved_count": 8,
+      "metrics": {
+        "p@1": 1.0,
+        "p@3": 1.0,
+        "p@5": 0.8,
+        "r@1": 0.25,
+        "r@3": 0.75,
+        "r@5": 1.0,
+        "mrr": 1.0,
+        "ndcg@3": 0.8451593915771352,
+        "ndcg@5": 0.836465302843712
+      },
+      "latencies_ms": {
+        "candidate_embedding": 993.1161000004067,
+        "indexing": 42.22900000058871,
+        "query_embedding": 26.165799999944284,
+        "vector_query": 6.613999999899534,
+        "total": 1069.7251000001415
+      },
+      "ranked_results": [
+        {
+          "arxiv_id": "1706.02216",
+          "distance": 0.22273290157318115,
+          "relevance_score": 0.7772670984268188
+        },
+        {
+          "arxiv_id": "1609.02907",
+          "distance": 0.22415727376937866,
+          "relevance_score": 0.7758427262306213
+        },
+        {
+          "arxiv_id": "1710.10903",
+          "distance": 0.2507256269454956,
+          "relevance_score": 0.7492743730545044
+        },
+        {
+          "arxiv_id": "1810.00826",
+          "distance": 0.25165826082229614,
+          "relevance_score": 0.7483417391777039
+        },
+        {
+          "arxiv_id": "1512.03385",
+          "distance": 0.37166595458984375,
+          "relevance_score": 0.6283340454101562
+        },
+        {
+          "arxiv_id": "1706.03762",
+          "distance": 0.3738265037536621,
+          "relevance_score": 0.6261734962463379
+        },
+        {
+          "arxiv_id": "2006.11239",
+          "distance": 0.3773288130760193,
+          "relevance_score": 0.6226711869239807
+        },
+        {
+          "arxiv_id": "2010.11929",
+          "distance": 0.3985801935195923,
+          "relevance_score": 0.6014198064804077
+        }
+      ]
+    }
+  ]
+}
