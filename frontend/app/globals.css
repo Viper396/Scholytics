@@ -1,71 +1,76 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Design Tokens — Scholytics
-   Sophisticated dark navy & cyan research workspace.
+   Design System Tokens — Scholytics
+   A refined, high-contrast dark navy research workspace.
+   Palette: Near-black background, deep-navy surfaces, pale readable text,
+   muted blue secondary text, and restrained cyan/turquoise accents.
    ============================================================ */
 :root {
   /* Surfaces & Backgrounds */
   --bg-page: #051424;
   --bg-surface: #0c1a2e;
-  --bg-surface-raised: #11223b;
-  --bg-surface-hover: #182e4e;
-  --bg-elevated: #11223b;
-  --bg-input: #081526;
-  --bg-hover: #182e4e;
+  --bg-surface-raised: #11233d;
+  --bg-surface-hover: #162c4b;
+  --bg-input: #071526;
+  --bg-card: #0b1a2d;
 
   /* Borders */
-  --border-subtle: #162a45;
-  --border-default: #1e385c;
+  --border-subtle: #152a47;
+  --border-default: #1d3658;
+  --border-hover: #2b4f7c;
   --border-accent: #0284c7;
   --border-focus: #22d3ee;
 
-  /* Text & Foreground */
-  --text-primary: #eaf2ff;
-  --text-secondary: #9cb1ce;
-  --text-muted: #5e779a;
+  /* Text & Contrast */
+  --text-primary: #f0f5fc;
+  --text-secondary: #9cb3cf;
+  --text-muted: #607899;
   --text-accent: #22d3ee;
-  --text-accent-dim: #38bdf8;
+  --text-accent-hover: #38bdf8;
 
-  /* Brand Accents */
+  /* Restrained Cyan Accent */
   --cyan-primary: #22d3ee;
   --cyan-hover: #38bdf8;
-  --cyan-dim: #0284c7;
-  --cyan-subtle: rgba(34, 211, 238, 0.12);
-  --cyan-text: #04121e;
-
-  /* Secondary & Accents */
-  --secondary: #4cd7f6;
-  --secondary-subtle: rgba(76, 215, 246, 0.12);
-  --tertiary: #34d399;
-  --tertiary-subtle: rgba(52, 211, 153, 0.12);
+  --cyan-active: #06b6d4;
+  --cyan-subtle: rgba(34, 211, 238, 0.08);
+  --cyan-border: rgba(34, 211, 238, 0.3);
+  --cyan-text-dark: #04121e;
 
   /* Status Colors */
   --success: #34d399;
   --success-bg: rgba(52, 211, 153, 0.1);
-  --success-border: rgba(52, 211, 153, 0.35);
+  --success-border: rgba(52, 211, 153, 0.3);
 
   --warning: #fbbf24;
   --warning-bg: rgba(251, 191, 36, 0.1);
-  --warning-border: rgba(251, 191, 36, 0.35);
+  --warning-border: rgba(251, 191, 36, 0.3);
 
   --error: #f87171;
   --error-bg: rgba(248, 113, 113, 0.08);
   --error-border: rgba(248, 113, 113, 0.35);
 
-  /* Radii */
+  /* Radii Scale */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
+  /* Spacing Scale Tokens */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.65);
-  --shadow-cyan: 0 0 0 3px rgba(34, 211, 238, 0.25);
-  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
 
   /* Typography */
   --font-sans: var(--font-geist-sans), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -73,7 +78,7 @@
 }
 
 /* ============================================================
-   Base reset & Layout
+   Base Reset & Layout
    ============================================================ */
 *,
 *::before,
@@ -84,6 +89,7 @@
 html {
   color-scheme: dark;
   scroll-behavior: smooth;
+  scroll-padding-top: 5rem; /* Prevent sticky header overlap on in-page anchor jumps */
 }
 
 body {
@@ -97,18 +103,18 @@ body {
 
 /* Shared responsive container */
 .page-container {
-  width: min(1520px, calc(100% - 32px));
+  width: min(1360px, calc(100% - 32px));
   margin-inline: auto;
 }
 
 @media (min-width: 640px) {
   .page-container {
-    width: min(1520px, calc(100% - 48px));
+    width: min(1360px, calc(100% - 48px));
   }
 }
 
 /* ============================================================
-   Focus styles — Visible keyboard rings
+   Focus Visible Treatment — Consistent 2px Cyan Ring
    ============================================================ */
 :focus-visible {
   outline: 2px solid var(--border-focus);
@@ -124,7 +130,7 @@ body {
 }
 
 /* ============================================================
-   Custom scrollbar
+   Custom Scrollbar
    ============================================================ */
 ::-webkit-scrollbar {
   width: 6px;
@@ -142,14 +148,14 @@ body {
 }
 
 /* ============================================================
-   Range input — Cyan accent
+   Range Input — Accessible Cyan Accent
    ============================================================ */
 input[type="range"] {
   accent-color: var(--cyan-primary);
 }
 
 /* ============================================================
-   Reduced motion
+   Prefers-Reduced-Motion Support
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -158,33 +164,27 @@ input[type="range"] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-}
-
-/* ============================================================
-   Dot Matrix Grid Background
-   ============================================================ */
-.bg-grid-pattern {
-  background-image: radial-gradient(rgba(34, 211, 238, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
 }
 
 /* ============================================================
    Synthesis Markdown Prose
    ============================================================ */
 .synthesis-prose p {
-  margin-bottom: 0.85em;
-  line-height: 1.75;
+  margin-bottom: 0.75em;
+  line-height: 1.7;
   color: var(--text-primary);
 }
 
 .synthesis-prose h1,
 .synthesis-prose h2,
 .synthesis-prose h3 {
-  color: var(--text-accent);
-  margin-top: 1.25em;
-  margin-bottom: 0.5em;
+  color: var(--text-primary);
+  margin-top: 1.15em;
+  margin-bottom: 0.4em;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .synthesis-prose ul,
@@ -194,7 +194,7 @@ input[type="range"] {
 }
 
 .synthesis-prose li {
-  margin-bottom: 0.35em;
+  margin-bottom: 0.3em;
   color: var(--text-secondary);
 }
 

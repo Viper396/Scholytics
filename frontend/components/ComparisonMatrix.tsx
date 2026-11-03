@@ -40,36 +40,36 @@ export default function ComparisonMatrix({
   onRetry,
 }: ComparisonMatrixProps) {
   return (
-    <div
-      className="mb-8 rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-5 sm:p-7 shadow-2xl transition-all"
+    <section
+      className="mb-8 rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-5 sm:p-6 shadow-lg transition-all"
       aria-label="Comparative analysis matrix"
     >
       {/* Header bar */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#1e385c]/80 pb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#1d3658] pb-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
-            <span className="text-base font-bold">⇄</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1d3658] bg-[#11233d] text-cyan-400">
+            <span className="text-sm font-bold" aria-hidden="true">⇄</span>
           </div>
           <div>
-            <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[#eaf2ff]">
+            <h3 className="text-base sm:text-lg font-bold tracking-tight text-[#f0f5fc]">
               Comparative Analysis Matrix
             </h3>
-            <p className="mt-0.5 text-xs text-[#9cb1ce]">
-              Structured dimensional comparison extracted from author-reported abstracts
+            <p className="text-xs text-[#9cb3cf]">
+              Dimensional comparison extracted from author-reported abstracts (2–4 papers)
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {comparisonResult && (
-            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 font-mono text-xs font-semibold text-cyan-400">
+            <span className="rounded border border-[#1d3658] bg-[#11233d] px-2.5 py-1 font-mono text-xs font-semibold text-cyan-400">
               {comparisonResult.papers.length} Papers Compared
             </span>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[#1e385c] bg-[#11223b] px-3 py-1.5 text-xs font-semibold text-[#9cb1ce] transition-all hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-3 py-1.5 text-xs font-medium text-[#9cb3cf] transition-colors hover:border-rose-500/40 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label="Close comparison matrix"
           >
             ✕ Close
@@ -79,13 +79,13 @@ export default function ComparisonMatrix({
 
       {/* Loading State */}
       {isComparing && (
-        <div className="py-12 text-center" role="status" aria-live="polite">
-          <div className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-          <p className="mt-3 text-sm font-semibold text-[#eaf2ff]">
+        <div className="py-10 text-center" role="status" aria-live="polite">
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+          <p className="mt-3 text-sm font-semibold text-[#f0f5fc]">
             Extracting comparative matrix from selected papers…
           </p>
-          <p className="mt-1 text-xs text-[#5e779a]">
-            Analyzing research objectives, methodologies, reported findings, and limitations using Llama 3.1 8B Instant.
+          <p className="mt-1 text-xs text-[#607899]">
+            Analyzing research objectives, methodologies, reported findings, and limitations.
           </p>
         </div>
       )}
@@ -93,7 +93,7 @@ export default function ComparisonMatrix({
       {/* Error State */}
       {comparisonError && !isComparing && (
         <div
-          className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-xs font-medium text-rose-300"
+          className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-xs font-medium text-rose-300"
           role="alert"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -109,32 +109,32 @@ export default function ComparisonMatrix({
         </div>
       )}
 
-      {/* Comparison Results Table */}
+      {/* Comparison Results */}
       {comparisonResult && !isComparing && (
-        <div className="space-y-6">
-          {/* Dimensional Comparison Table */}
-          <div className="overflow-x-auto rounded-xl border border-[#1e385c]/80 bg-[#081526]">
-            <table className="w-full min-w-[760px] border-collapse text-left text-xs">
+        <div className="space-y-5">
+          {/* Dimensional Comparison Table with Horizontal Scroll */}
+          <div className="overflow-x-auto rounded-lg border border-[#1d3658] bg-[#071526]">
+            <table className="w-full min-w-[700px] border-collapse text-left text-xs">
               <thead>
-                <tr className="border-b border-[#1e385c] bg-[#11223b]">
-                  <th className="w-40 p-4 font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                <tr className="border-b border-[#1d3658] bg-[#11233d]">
+                  <th className="w-36 p-3.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-wider sticky left-0 bg-[#11233d] z-10">
                     Dimension
                   </th>
                   {comparisonResult.papers.map((p, idx) => (
                     <th
                       key={p.arxiv_id}
-                      className={`p-4 font-semibold text-[#eaf2ff] ${
-                        idx > 0 ? "border-l border-[#1e385c]" : ""
+                      className={`p-3.5 font-semibold text-[#f0f5fc] ${
+                        idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                       style={{ width: `${Math.floor(100 / (comparisonResult.papers.length + 1))}%` }}
                     >
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-1">
                         <div className="flex items-center justify-between gap-2">
                           <a
                             href={p.entry_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-[11px] font-bold text-cyan-400 hover:underline"
+                            className="font-mono text-[11px] font-semibold text-cyan-400 hover:underline"
                           >
                             arXiv:{p.arxiv_id}
                           </a>
@@ -143,7 +143,7 @@ export default function ComparisonMatrix({
                               href={p.pdf_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded border border-cyan-500/30 bg-cyan-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-300 hover:bg-cyan-500/25"
+                              className="rounded border border-[#1d3658] bg-[#0c1a2e] px-1.5 py-0.5 font-mono text-[10px] text-cyan-300 hover:border-cyan-400"
                             >
                               PDF ↗
                             </a>
@@ -153,11 +153,11 @@ export default function ComparisonMatrix({
                           href={p.entry_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="line-clamp-2 font-semibold text-xs leading-snug text-[#eaf2ff] hover:text-cyan-300 hover:underline"
+                          className="line-clamp-2 font-medium text-xs text-[#f0f5fc] hover:text-cyan-300 hover:underline"
                         >
                           {p.title}
                         </a>
-                        <span className="text-[11px] text-[#5e779a]">
+                        <span className="text-[11px] text-[#607899]">
                           {p.published ? p.published.slice(0, 4) : ""} ·{" "}
                           {p.authors.length > 0 ? `${p.authors[0]} et al.` : ""}
                         </span>
@@ -166,17 +166,17 @@ export default function ComparisonMatrix({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#1e385c]/60">
+              <tbody className="divide-y divide-[#1d3658]">
                 {/* Row 1: Objective */}
-                <tr className="hover:bg-[#0c1a2e]/50 transition-colors">
-                  <td className="p-4 font-mono text-[11px] font-semibold text-cyan-300/80 bg-[#11223b]/40 align-top">
+                <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
+                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
                     Objective
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-4 leading-relaxed text-[#eaf2ff] align-top ${
-                        idx > 0 ? "border-l border-[#1e385c]/60" : ""
+                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top ${
+                        idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                     >
                       {p.research_question}
@@ -185,15 +185,15 @@ export default function ComparisonMatrix({
                 </tr>
 
                 {/* Row 2: Method */}
-                <tr className="hover:bg-[#0c1a2e]/50 transition-colors">
-                  <td className="p-4 font-mono text-[11px] font-semibold text-cyan-300/80 bg-[#11223b]/40 align-top">
+                <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
+                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
                     Proposed Method
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-4 leading-relaxed text-[#eaf2ff] align-top ${
-                        idx > 0 ? "border-l border-[#1e385c]/60" : ""
+                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top ${
+                        idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                     >
                       {p.method}
@@ -202,19 +202,19 @@ export default function ComparisonMatrix({
                 </tr>
 
                 {/* Row 3: Datasets & Setup */}
-                <tr className="hover:bg-[#0c1a2e]/50 transition-colors">
-                  <td className="p-4 font-mono text-[11px] font-semibold text-cyan-300/80 bg-[#11223b]/40 align-top">
+                <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
+                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
                     Datasets / Setup
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-4 leading-relaxed align-top ${
-                        idx > 0 ? "border-l border-[#1e385c]/60" : ""
+                      className={`p-3.5 leading-relaxed align-top ${
+                        idx > 0 ? "border-l border-[#1d3658]" : ""
                       } ${
                         p.datasets_or_setup.includes("Not explicitly")
-                          ? "text-[#5e779a] italic"
-                          : "text-[#eaf2ff]"
+                          ? "text-[#607899] italic"
+                          : "text-[#f0f5fc]"
                       }`}
                     >
                       {p.datasets_or_setup}
@@ -223,15 +223,15 @@ export default function ComparisonMatrix({
                 </tr>
 
                 {/* Row 4: Findings */}
-                <tr className="hover:bg-[#0c1a2e]/50 transition-colors">
-                  <td className="p-4 font-mono text-[11px] font-semibold text-cyan-300/80 bg-[#11223b]/40 align-top">
+                <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
+                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
                     Reported Findings
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-4 leading-relaxed text-[#eaf2ff] align-top ${
-                        idx > 0 ? "border-l border-[#1e385c]/60" : ""
+                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top ${
+                        idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                     >
                       {p.reported_findings}
@@ -240,18 +240,18 @@ export default function ComparisonMatrix({
                 </tr>
 
                 {/* Row 5: Limitations */}
-                <tr className="hover:bg-[#0c1a2e]/50 transition-colors">
-                  <td className="p-4 font-mono text-[11px] font-semibold text-cyan-300/80 bg-[#11223b]/40 align-top">
+                <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
+                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
                     Author Limitations
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-4 leading-relaxed align-top ${
-                        idx > 0 ? "border-l border-[#1e385c]/60" : ""
+                      className={`p-3.5 leading-relaxed align-top ${
+                        idx > 0 ? "border-l border-[#1d3658]" : ""
                       } ${
                         p.limitations.includes("Not explicitly")
-                          ? "text-[#5e779a] italic"
+                          ? "text-[#607899] italic"
                           : "text-rose-300"
                       }`}
                     >
@@ -263,17 +263,17 @@ export default function ComparisonMatrix({
             </table>
           </div>
 
-          {/* Cross-Paper Synthesized Insights */}
+          {/* Synthesized Cross-Paper Analysis */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Similarities */}
-            <div className="rounded-xl border border-cyan-500/30 bg-[#081526] p-4 sm:p-5">
-              <div className="mb-2.5 flex items-center gap-1.5">
-                <span className="text-cyan-400 font-bold">✓</span>
-                <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-cyan-400">
-                  Similarities & Consensus
+            <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-4">
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="text-cyan-400 font-bold" aria-hidden="true">✓</span>
+                <h4 className="font-mono text-xs font-bold text-cyan-400">
+                  Similarities &amp; Consensus
                 </h4>
               </div>
-              <ul className="space-y-2 text-xs text-[#9cb1ce]">
+              <ul className="space-y-1.5 text-xs text-[#9cb3cf]">
                 {comparisonResult.similarities.length > 0 ? (
                   comparisonResult.similarities.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
@@ -282,7 +282,7 @@ export default function ComparisonMatrix({
                     </li>
                   ))
                 ) : (
-                  <li className="text-[11px] text-[#5e779a] italic">
+                  <li className="text-[11px] text-[#607899] italic">
                     No notable commonalities identified in abstracts.
                   </li>
                 )}
@@ -290,23 +290,23 @@ export default function ComparisonMatrix({
             </div>
 
             {/* Differences */}
-            <div className="rounded-xl border border-indigo-500/30 bg-[#081526] p-4 sm:p-5">
-              <div className="mb-2.5 flex items-center gap-1.5">
-                <span className="text-indigo-400 font-bold">≠</span>
-                <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-indigo-400">
+            <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-4">
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="text-cyan-300 font-bold" aria-hidden="true">≠</span>
+                <h4 className="font-mono text-xs font-bold text-cyan-300">
                   Methodological Differences
                 </h4>
               </div>
-              <ul className="space-y-2 text-xs text-[#9cb1ce]">
+              <ul className="space-y-1.5 text-xs text-[#9cb3cf]">
                 {comparisonResult.differences.length > 0 ? (
                   comparisonResult.differences.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <span className="text-indigo-400 font-bold mt-0.5">•</span>
+                      <span className="text-cyan-400 font-bold mt-0.5">•</span>
                       <span className="leading-relaxed">{item}</span>
                     </li>
                   ))
                 ) : (
-                  <li className="text-[11px] text-[#5e779a] italic">
+                  <li className="text-[11px] text-[#607899] italic">
                     No distinct divergence reported across abstracts.
                   </li>
                 )}
@@ -314,11 +314,11 @@ export default function ComparisonMatrix({
             </div>
 
             {/* Research Gaps */}
-            <div className="rounded-xl border border-amber-500/30 bg-[#081526] p-4 sm:p-5">
-              <div className="mb-2.5 flex items-center justify-between gap-1">
+            <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-4">
+              <div className="mb-2 flex items-center justify-between gap-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-amber-400 font-bold">?</span>
-                  <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <span className="text-amber-400 font-bold" aria-hidden="true">?</span>
+                  <h4 className="font-mono text-xs font-bold text-amber-400">
                     Potential Research Gaps
                   </h4>
                 </div>
@@ -326,7 +326,7 @@ export default function ComparisonMatrix({
                   Model Interpretation
                 </span>
               </div>
-              <ul className="space-y-2 text-xs text-[#9cb1ce]">
+              <ul className="space-y-1.5 text-xs text-[#9cb3cf]">
                 {comparisonResult.research_gaps.length > 0 ? (
                   comparisonResult.research_gaps.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
@@ -335,7 +335,7 @@ export default function ComparisonMatrix({
                     </li>
                   ))
                 ) : (
-                  <li className="text-[11px] text-[#5e779a] italic">
+                  <li className="text-[11px] text-[#607899] italic">
                     No evident research gaps derived from reported limitations.
                   </li>
                 )}
@@ -344,11 +344,11 @@ export default function ComparisonMatrix({
           </div>
 
           {/* Disclaimer */}
-          <p className="text-[11px] text-[#5e779a]">
+          <p className="text-[11px] text-[#607899]">
             ⚠ {comparisonResult.disclaimer}
           </p>
         </div>
       )}
-    </div>
+    </section>
   );
 }

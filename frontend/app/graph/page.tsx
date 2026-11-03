@@ -77,14 +77,14 @@ const SVG_WIDTH = 1200;
 const SVG_HEIGHT = 720;
 const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
 
-// Color palette for node categories
+// Cohesive palette for node categories
 const COLOR_PALETTE = [
   "#22d3ee", // cyan
   "#38bdf8", // sky
   "#34d399", // emerald
   "#fbbf24", // amber
-  "#f87171", // rose
   "#a78bfa", // violet
+  "#f87171", // rose
   "#2dd4bf", // teal
   "#fb923c", // orange
 ];
@@ -92,7 +92,7 @@ const COLOR_PALETTE = [
 // Edge colors
 const EDGE_COLORS = {
   "co-author": "#22d3ee", // cyan — shared author between papers
-  "same-field": "#64748b", // slate/grey — shared arXiv category
+  "same-field": "#64748b", // slate — shared arXiv category
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ function clampScore(score: number): number {
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value || "Unknown date";
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -336,8 +336,8 @@ function GraphPageContent() {
     const radiusForNode = (node: SimNode) => {
       const isSmall = currentNodes.length <= 5;
       return isSmall
-        ? 16 + clampScore(node.relevance_score) * 18
-        : 10 + clampScore(node.relevance_score) * 14;
+        ? 20 + clampScore(node.relevance_score) * 16
+        : 12 + clampScore(node.relevance_score) * 12;
     };
 
     let minX = Infinity;
@@ -355,8 +355,8 @@ function GraphPageContent() {
       if (y + r > maxY) maxY = y + r;
     }
 
-    const dx = Math.max(maxX - minX, 80);
-    const dy = Math.max(maxY - minY, 80);
+    const dx = Math.max(maxX - minX, 100);
+    const dy = Math.max(maxY - minY, 100);
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
@@ -368,8 +368,8 @@ function GraphPageContent() {
       availableHeight / dy,
     );
     const clampedScale = Math.min(
-      currentNodes.length <= 3 ? 2.0 : currentNodes.length <= 6 ? 1.5 : 1.25,
-      Math.max(0.45, autoScale),
+      currentNodes.length <= 3 ? 2.2 : currentNodes.length <= 6 ? 1.6 : 1.3,
+      Math.max(0.5, autoScale),
     );
 
     const transform = d3.zoomIdentity
@@ -415,56 +415,17 @@ function GraphPageContent() {
 
     const radius = (node: SimNode) =>
       isSmallGraph
-        ? 16 + clampScore(node.relevance_score) * 18
+        ? 20 + clampScore(node.relevance_score) * 16
         : isMediumGraph
-        ? 12 + clampScore(node.relevance_score) * 14
-        : 9 + clampScore(node.relevance_score) * 12;
+        ? 14 + clampScore(node.relevance_score) * 12
+        : 10 + clampScore(node.relevance_score) * 10;
 
-    // Canvas Defs (Glow filters, dot matrix pattern)
-    const defs = svg.append("defs");
-
-    // Dot grid pattern
-    const pattern = defs
-      .append("pattern")
-      .attr("id", "graph-grid-pattern")
-      .attr("width", 28)
-      .attr("height", 28)
-      .attr("patternUnits", "userSpaceOnUse");
-
-    pattern
-      .append("circle")
-      .attr("cx", 2)
-      .attr("cy", 2)
-      .attr("r", 1)
-      .attr("fill", "#1e385c")
-      .attr("opacity", 0.6);
-
-    // Glowing filter
-    const glowFilter = defs
-      .append("filter")
-      .attr("id", "cyan-glow")
-      .attr("x", "-30%")
-      .attr("y", "-30%")
-      .attr("width", "160%")
-      .attr("height", "160%");
-
-    glowFilter
-      .append("feGaussianBlur")
-      .attr("stdDeviation", 6)
-      .attr("result", "blur");
-
-    glowFilter
-      .append("feComposite")
-      .attr("in", "SourceGraphic")
-      .attr("in2", "blur")
-      .attr("operator", "over");
-
-    // Background rect with dot grid
+    // Background Canvas
     svg
       .append("rect")
       .attr("width", "100%")
       .attr("height", "100%")
-      .attr("fill", "url(#graph-grid-pattern)")
+      .attr("fill", "#040e1b")
       .attr("pointer-events", "none");
 
     const zoomLayer = svg.append("g").attr("class", "zoom-layer");
@@ -479,18 +440,24 @@ function GraphPageContent() {
       .join("line")
       .style("stroke", (link) => EDGE_COLORS[link.type])
       .style("stroke-width", (link) =>
-        link.type === "co-author" ? 2.5 + Math.min(2.5, link.weight - 1) : 1.8,
+        link.type === "co-author" ? 2 + Math.min(2, link.weight - 1) : 1.5,
       )
       .style("stroke-opacity", (link) =>
-        link.type === "co-author" ? 0.85 : 0.45,
+        link.type === "co-author" ? 0.8 : 0.45,
       )
       .style("stroke-dasharray", (link) =>
-        link.type === "same-field" ? "5 4" : "none",
+        link.type === "same-field" ? "4 3" : "none",
       )
       .style("cursor", "pointer")
       .on("mouseenter", (event, link) => {
-        const sourceNode = typeof link.source === "object" ? (link.source as SimNode) : nodes.find((n) => n.id === link.source);
-        const targetNode = typeof link.target === "object" ? (link.target as SimNode) : nodes.find((n) => n.id === link.target);
+        const sourceNode =
+          typeof link.source === "object"
+            ? (link.source as SimNode)
+            : nodes.find((n) => n.id === link.source);
+        const targetNode =
+          typeof link.target === "object"
+            ? (link.target as SimNode)
+            : nodes.find((n) => n.id === link.target);
         if (sourceNode && targetNode) {
           setEdgeTooltip({
             x: event.clientX,
@@ -507,7 +474,7 @@ function GraphPageContent() {
         }
         d3.select(event.currentTarget)
           .style("stroke", "#22d3ee")
-          .style("stroke-width", link.type === "co-author" ? 4 : 3)
+          .style("stroke-width", link.type === "co-author" ? 3.5 : 2.5)
           .style("stroke-opacity", 1);
       })
       .on("mousemove", (event) => {
@@ -521,16 +488,16 @@ function GraphPageContent() {
           .style("stroke", EDGE_COLORS[link.type])
           .style(
             "stroke-width",
-            link.type === "co-author" ? 2.5 + Math.min(2.5, link.weight - 1) : 1.8,
+            link.type === "co-author" ? 2 + Math.min(2, link.weight - 1) : 1.5,
           )
-          .style("stroke-opacity", link.type === "co-author" ? 0.85 : 0.45);
+          .style("stroke-opacity", link.type === "co-author" ? 0.8 : 0.45);
       });
 
     // Drag behavior
     const dragBehavior = d3
       .drag<SVGCircleElement, SimNode>()
       .on("start", (event, node) => {
-        if (!event.active) simulation.alphaTarget(0.35).restart();
+        if (!event.active) simulation.alphaTarget(0.3).restart();
         node.fx = node.x;
         node.fy = node.y;
       })
@@ -590,14 +557,14 @@ function GraphPageContent() {
       .selectAll<SVGTextElement, SimNode>("text")
       .data(nodes)
       .join("text")
-      .text((node) => truncateLabel(node.title, isSmallGraph ? 32 : 24))
+      .text((node) => truncateLabel(node.title, isSmallGraph ? 42 : 28))
       .style("font-size", isSmallGraph ? "12px" : "11px")
       .style("font-weight", "600")
       .style("font-family", "var(--font-sans)")
-      .style("fill", "#eaf2ff")
+      .style("fill", "#f0f5fc")
       .style("pointer-events", "none")
       .style("paint-order", "stroke")
-      .style("stroke", "#051424")
+      .style("stroke", "#040e1b")
       .style("stroke-width", "3.5px")
       .style("stroke-linejoin", "round");
 
@@ -609,20 +576,20 @@ function GraphPageContent() {
         d3
           .forceLink<SimNode, SimLink>(links)
           .id((node) => node.id)
-          .distance(isSmallGraph ? 230 : isMediumGraph ? 170 : 130)
+          .distance(isSmallGraph ? 210 : isMediumGraph ? 160 : 120)
           .strength(0.4),
       )
       .force(
         "charge",
-        d3.forceManyBody().strength(isSmallGraph ? -520 : isMediumGraph ? -370 : -280),
+        d3.forceManyBody().strength(isSmallGraph ? -480 : isMediumGraph ? -340 : -250),
       )
       .force("center", d3.forceCenter(SVG_WIDTH / 2, SVG_HEIGHT / 2))
       .force(
         "collision",
-        d3.forceCollide<SimNode>().radius((node) => radius(node) + (isSmallGraph ? 26 : 18)),
+        d3.forceCollide<SimNode>().radius((node) => radius(node) + (isSmallGraph ? 24 : 16)),
       )
-      .alpha(0.95)
-      .alphaDecay(0.03);
+      .alpha(0.9)
+      .alphaDecay(0.035);
 
     let tickCount = 0;
 
@@ -643,10 +610,9 @@ function GraphPageContent() {
         .attr("x", (node) => (node.x ?? 0) + radius(node) + 6)
         .attr("y", (node) => (node.y ?? 0) + 4);
 
-      // Auto zoom-to-fit once simulation settles on initial load
-      if (!hasAutoFittedRef.current && (tickCount >= 35 || simulation.alpha() < 0.1)) {
+      if (!hasAutoFittedRef.current && (tickCount >= 30 || simulation.alpha() < 0.1)) {
         hasAutoFittedRef.current = true;
-        zoomToFit(70, 350);
+        zoomToFit(70, 300);
       }
     });
 
@@ -668,7 +634,6 @@ function GraphPageContent() {
       setEdgeTooltip(null);
     });
 
-    // Cleanup simulation & listeners on unmount/rerender
     return () => {
       simulation.stop();
       simulation.on("tick", null);
@@ -678,7 +643,7 @@ function GraphPageContent() {
     };
   }, [graphData, visibleEdges, zoomToFit]);
 
-  // Highlight selected and hovered nodes in SVG
+  // Highlight selected and hovered nodes in SVG (lightweight without simulation restart)
   useEffect(() => {
     const svgElement = svgRef.current;
     if (!svgElement) return;
@@ -687,7 +652,6 @@ function GraphPageContent() {
     const targetId = selectedNodeId || hoveredNodeId;
 
     if (!targetId) {
-      // Normal state
       svg.selectAll<SVGCircleElement, SimNode>("g.nodes circle")
         .style("stroke", "#051424")
         .style("stroke-width", 2.5)
@@ -701,7 +665,6 @@ function GraphPageContent() {
       return;
     }
 
-    // Set of connected node IDs
     const connectedNodeIds = new Set<string>([targetId]);
     for (const edge of visibleEdges) {
       if (edge.source === targetId) connectedNodeIds.add(edge.target);
@@ -718,13 +681,13 @@ function GraphPageContent() {
         if (!link) return 1;
         const s = typeof link.source === "object" ? (link.source as SimNode)?.id : link.source;
         const t = typeof link.target === "object" ? (link.target as SimNode)?.id : link.target;
-        return s === targetId || t === targetId ? 1 : 0.12;
+        return s === targetId || t === targetId ? 1 : 0.15;
       })
       .style("stroke-width", (link) => {
-        if (!link) return 1.8;
+        if (!link) return 1.5;
         const s = typeof link.source === "object" ? (link.source as SimNode)?.id : link.source;
         const t = typeof link.target === "object" ? (link.target as SimNode)?.id : link.target;
-        return s === targetId || t === targetId ? 3.5 : 1.8;
+        return s === targetId || t === targetId ? 3 : 1.5;
       });
 
     svg.selectAll<SVGTextElement, SimNode>("g.labels text")
@@ -772,7 +735,7 @@ function GraphPageContent() {
     const svgElement = svgRef.current;
     const zoomBehavior = zoomBehaviorRef.current;
     if (!svgElement || !zoomBehavior) return;
-    d3.select(svgElement).transition().duration(220).call(zoomBehavior.scaleBy, factor);
+    d3.select(svgElement).transition().duration(200).call(zoomBehavior.scaleBy, factor);
   }, []);
 
   const handleResetLayout = useCallback(() => {
@@ -782,12 +745,12 @@ function GraphPageContent() {
     for (const node of simulation.nodes()) {
       node.fx = null;
       node.fy = null;
-      node.x = SVG_WIDTH / 2 + (Math.random() - 0.5) * 200;
-      node.y = SVG_HEIGHT / 2 + (Math.random() - 0.5) * 200;
+      node.x = SVG_WIDTH / 2 + (Math.random() - 0.5) * 160;
+      node.y = SVG_HEIGHT / 2 + (Math.random() - 0.5) * 160;
       node.vx = 0;
       node.vy = 0;
     }
-    simulation.alpha(1).restart();
+    simulation.alpha(0.8).restart();
 
     hasAutoFittedRef.current = false;
     const svgElement = svgRef.current;
@@ -795,7 +758,7 @@ function GraphPageContent() {
     if (svgElement && zoomBehavior) {
       d3.select(svgElement)
         .transition()
-        .duration(220)
+        .duration(200)
         .call(zoomBehavior.transform, d3.zoomIdentity);
     }
   }, []);
@@ -844,9 +807,7 @@ function GraphPageContent() {
                 ? errData.detail
                 : JSON.stringify(errData.detail);
           }
-        } catch {
-          // fallback to generic message
-        }
+        } catch {}
         throw new Error(msg);
       }
 
@@ -970,35 +931,35 @@ function GraphPageContent() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#051424] text-[#eaf2ff]">
+    <div className="min-h-screen bg-[#051424] text-[#f0f5fc]">
       <Nav selectedIds={selectedForGraph} />
 
-      <main className="page-container py-8 flex flex-col gap-6">
-        {/* Header with relationship distinction */}
-        <header className="rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-6 shadow-xl flex flex-col gap-4">
+      <main className="page-container py-6 sm:py-8 flex flex-col gap-6">
+        {/* Header with Exact Non-Citation Distinction */}
+        <header className="rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-5 sm:p-6 shadow-sm flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2 text-xs font-mono text-[#9cb1ce]">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 text-xs text-[#9cb3cf]">
                 <Link
                   href="/"
                   className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors"
                 >
                   <span>← Back to Search</span>
                 </Link>
-                <span className="text-[#5e779a]">/</span>
-                <span className="text-[#9cb1ce]">topology://cluster</span>
+                <span className="text-[#607899]">/</span>
+                <span className="text-[#9cb3cf]">Relationship Graph</span>
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
-                  <span className="text-base font-bold">◈</span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1d3658] bg-[#11233d] text-cyan-400">
+                  <span className="text-sm font-bold" aria-hidden="true">◈</span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#eaf2ff]">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#f0f5fc]">
                   Research Relationship Graph
                 </h1>
                 {graphData && graphData.nodes.length > 0 && (
-                  <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-cyan-400">
-                    {graphData.nodes.length} Papers in Graph • {visibleEdges.length} Connections
+                  <span className="rounded border border-[#1d3658] bg-[#11233d] px-2.5 py-0.5 font-mono text-xs font-semibold text-cyan-400">
+                    {graphData.nodes.length} Papers in Graph · {visibleEdges.length} Connections
                   </span>
                 )}
               </div>
@@ -1018,7 +979,7 @@ function GraphPageContent() {
                   }
                 }}
                 disabled={isComparing}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 px-4 py-2 text-xs font-bold text-[#04121e] shadow-[0_0_16px_rgba(34,211,238,0.25)] transition-all hover:from-cyan-300 hover:to-cyan-400 shrink-0 self-start sm:self-center"
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3.5 py-2 text-xs font-bold text-[#04121e] transition-colors hover:bg-cyan-300 shrink-0 self-start sm:self-center"
               >
                 <span>⇄</span>
                 <span>
@@ -1030,42 +991,42 @@ function GraphPageContent() {
             )}
           </div>
 
-          {/* Context Clarification Banner */}
-          <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-3.5 flex items-start gap-3">
-            <span className="text-cyan-400 text-sm mt-0.5 shrink-0">ⓘ</span>
-            <p className="text-xs text-[#9cb1ce] leading-relaxed">
+          {/* Context Clarification Banner — Exact Required Non-Citation Wording */}
+          <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-3 flex items-start gap-2.5">
+            <span className="text-cyan-400 text-sm mt-0.5 shrink-0" aria-hidden="true">ⓘ</span>
+            <p className="text-xs text-[#9cb3cf] leading-relaxed">
               Interactive relationship map — edges represent shared authors or shared arXiv categories, <strong className="text-cyan-400 font-semibold">not citation relationships</strong>.
             </p>
           </div>
         </header>
 
-        {/* Empty state — no IDs */}
+        {/* Empty state — no IDs provided */}
         {requestedIds.length === 0 && (
           <div
-            className="rounded-3xl border border-dashed border-[#1e385c] bg-[#0c1a2e]/60 p-12 text-center"
+            className="rounded-xl border border-dashed border-[#1d3658] bg-[#0c1a2e]/50 p-10 text-center"
             role="status"
           >
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#1e385c] bg-[#11223b] text-3xl text-cyan-400 shadow-lg">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[#1d3658] bg-[#11233d] text-2xl text-cyan-400">
               ◈
             </div>
-            <p className="text-lg font-bold text-[#eaf2ff]">
+            <p className="text-base font-bold text-[#f0f5fc]">
               No papers selected
             </p>
-            <p className="mt-2 text-xs sm:text-sm text-[#9cb1ce]">
+            <p className="mt-1.5 text-xs sm:text-sm text-[#9cb3cf]">
               Go back to search, select papers using{" "}
               <strong className="text-cyan-400 font-semibold">Add to Graph</strong>,
               then open this page.
             </p>
             <Link
               href="/"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 px-5 py-2 text-xs font-bold text-[#04121e] shadow-lg transition-all hover:from-cyan-300 hover:to-cyan-400"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-[#04121e] transition-colors hover:bg-cyan-300"
             >
               <span>← Go to Search</span>
             </Link>
           </div>
         )}
 
-        {/* Active comparison modal/section */}
+        {/* Active comparison view */}
         {showComparisonView && (
           <ComparisonMatrix
             isComparing={isComparing}
@@ -1079,19 +1040,19 @@ function GraphPageContent() {
         {/* Graph + Sidebar Two-Column Workspace */}
         {requestedIds.length > 0 && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-            {/* Main Graph Workspace (8 cols on lg/xl = ~67-70%) */}
+            {/* Main Graph Workspace (8 cols on lg/xl) */}
             <section
-              className="lg:col-span-8 flex flex-col gap-4 rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-4 sm:p-6 shadow-xl"
+              className="lg:col-span-8 flex flex-col gap-3 rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-4 sm:p-5 shadow-sm"
               aria-label="Research relationship graph"
             >
               {/* Toolbar Controls */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e385c]/80 bg-[#081526] p-2.5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-[#1d3658] bg-[#071526] p-2">
                 {/* Zoom / layout toolbar */}
                 <div className="flex items-center gap-1.5" role="toolbar" aria-label="Graph controls">
                   <button
                     type="button"
                     onClick={() => handleZoomBy(1.25)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e385c] bg-[#11223b] text-sm font-bold text-[#eaf2ff] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                    className="flex h-7 w-7 items-center justify-center rounded border border-[#1d3658] bg-[#11233d] text-xs font-bold text-[#f0f5fc] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Zoom in"
                     title="Zoom in"
                   >
@@ -1100,17 +1061,17 @@ function GraphPageContent() {
                   <button
                     type="button"
                     onClick={() => handleZoomBy(0.8)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e385c] bg-[#11223b] text-sm font-bold text-[#eaf2ff] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                    className="flex h-7 w-7 items-center justify-center rounded border border-[#1d3658] bg-[#11233d] text-xs font-bold text-[#f0f5fc] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Zoom out"
                     title="Zoom out"
                   >
                     −
                   </button>
-                  <div className="h-4 w-px bg-[#1e385c] mx-1" />
+                  <div className="h-4 w-px bg-[#1d3658] mx-0.5" />
                   <button
                     type="button"
                     onClick={() => zoomToFit(70, 300)}
-                    className="rounded-lg border border-[#1e385c] bg-[#11223b] px-3 h-8 text-xs font-semibold text-[#9cb1ce] transition-colors hover:border-cyan-500/40 hover:text-[#eaf2ff] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                    className="rounded border border-[#1d3658] bg-[#11233d] px-2.5 h-7 text-xs font-medium text-[#9cb3cf] transition-colors hover:border-cyan-500/40 hover:text-[#f0f5fc] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Fit graph to view"
                     title="Center and fit all nodes in view"
                   >
@@ -1119,7 +1080,7 @@ function GraphPageContent() {
                   <button
                     type="button"
                     onClick={handleResetLayout}
-                    className="rounded-lg bg-cyan-400/15 border border-cyan-400/40 px-3 h-8 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                    className="rounded border border-cyan-400/40 bg-cyan-400/15 px-2.5 h-7 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Reset graph layout"
                     title="Re-run simulation physics"
                   >
@@ -1134,10 +1095,10 @@ function GraphPageContent() {
                   aria-label="Edge relationship filters"
                 >
                   <label
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                       showCoAuthorEdges
-                        ? "border border-cyan-500/40 bg-cyan-500/15 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.15)]"
-                        : "border border-[#1e385c] bg-[#11223b] text-[#5e779a]"
+                        ? "border border-cyan-500/40 bg-cyan-500/15 text-cyan-300"
+                        : "border border-[#1d3658] bg-[#11233d] text-[#607899]"
                     }`}
                   >
                     <input
@@ -1148,17 +1109,17 @@ function GraphPageContent() {
                       aria-label="Show co-author edges (shared authors between papers)"
                     />
                     <span
-                      className="inline-block h-1.5 w-3.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"
+                      className="inline-block h-1.5 w-3 rounded-full bg-cyan-400"
                       aria-hidden="true"
                     />
                     <span>Co-author ({coAuthorEdgeCount})</span>
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                       showSameFieldEdges
-                        ? "border border-[#1e385c] bg-[#11223b] text-[#eaf2ff]"
-                        : "border border-[#1e385c]/60 bg-[#11223b]/50 text-[#5e779a]"
+                        ? "border border-[#1d3658] bg-[#11233d] text-[#f0f5fc]"
+                        : "border border-[#1d3658]/60 bg-[#11233d]/40 text-[#607899]"
                     }`}
                   >
                     <input
@@ -1169,7 +1130,7 @@ function GraphPageContent() {
                       aria-label="Show same-field edges (shared arXiv categories between papers)"
                     />
                     <span
-                      className="inline-block h-0 w-3.5 border-b-2 border-dashed border-[#64748b]"
+                      className="inline-block h-0 w-3 border-b-2 border-dashed border-[#64748b]"
                       aria-hidden="true"
                     />
                     <span>Same field ({sameFieldEdgeCount})</span>
@@ -1177,13 +1138,13 @@ function GraphPageContent() {
                 </div>
               </div>
 
-              {/* Accessible Paper Selection Bar (for Keyboard & Touch Users) */}
+              {/* Accessible Node Selector Dropdown (Keyboard & Screen Reader accessibility) */}
               {graphData && graphData.nodes.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[#1e385c]/60 bg-[#081526] px-3.5 py-2 text-xs">
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400 shrink-0">
-                    Keyboard / Focus Selector:
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#1d3658] bg-[#071526] px-3 py-1.5 text-xs">
+                  <span className="font-mono text-xs font-semibold text-cyan-400 shrink-0">
+                    Keyboard Node Selector:
                   </span>
-                  <div className="flex flex-1 min-w-[220px] items-center gap-2">
+                  <div className="flex flex-1 min-w-[200px] items-center gap-2">
                     <label htmlFor="accessible-node-select" className="sr-only">
                       Select paper in graph
                     </label>
@@ -1197,7 +1158,7 @@ function GraphPageContent() {
                           detailsAsideRef.current?.scrollIntoView?.({ behavior: "smooth" });
                         }
                       }}
-                      className="h-8 w-full rounded-lg border border-[#1e385c] bg-[#0c1a2e] px-2.5 text-xs text-[#eaf2ff] transition-all focus:border-cyan-400 focus:outline-none"
+                      className="h-7 w-full rounded border border-[#1d3658] bg-[#0c1a2e] px-2 text-xs text-[#f0f5fc] transition-colors focus:border-cyan-400 focus:outline-none"
                     >
                       <option value="">
                         -- Choose a paper ({graphData.nodes.length} papers in graph) --
@@ -1214,16 +1175,16 @@ function GraphPageContent() {
 
               {/* Compare Matrix Shortcut Bar */}
               {graphData && graphData.nodes.length >= 2 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e385c]/60 bg-[#081526] px-3.5 py-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#9cb1ce]">
-                      Compare Matrix:
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#1d3658] bg-[#071526] px-3 py-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold text-[#9cb3cf]">
+                      Compare:
                     </span>
                     <span
-                      className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold border ${
+                      className={`rounded px-2 py-0.2 font-mono text-[11px] font-semibold border ${
                         selectedForCompare.length >= 2
-                          ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-300"
-                          : "border-[#1e385c] bg-[#11223b] text-[#5e779a]"
+                          ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
+                          : "border-[#1d3658] bg-[#11233d] text-[#607899]"
                       }`}
                     >
                       {selectedForCompare.length} / 4 selected
@@ -1232,20 +1193,20 @@ function GraphPageContent() {
                       <button
                         type="button"
                         onClick={() => setSelectedForCompare([])}
-                        className="text-xs text-[#5e779a] hover:text-[#eaf2ff] hover:underline"
+                        className="text-[#607899] hover:text-[#f0f5fc] hover:underline"
                       >
                         Clear
                       </button>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {selectedForCompare.length >= 2 ? (
                       <button
                         type="button"
                         onClick={() => generateComparison()}
                         disabled={isComparing}
-                        className="rounded-lg bg-cyan-400 px-3.5 py-1.5 text-xs font-bold text-[#04121e] shadow-md transition-all hover:bg-cyan-300 disabled:opacity-50"
+                        className="rounded bg-cyan-400 px-3 py-1 text-xs font-bold text-[#04121e] transition-colors hover:bg-cyan-300 disabled:opacity-50"
                       >
                         {isComparing ? "Comparing…" : `Compare Selected (${selectedForCompare.length})`}
                       </button>
@@ -1258,7 +1219,7 @@ function GraphPageContent() {
                           generateComparison(autoIds);
                         }}
                         disabled={isComparing}
-                        className="rounded-lg border border-[#1e385c] bg-[#11223b] px-3 py-1.5 text-xs font-semibold text-[#9cb1ce] transition-colors hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+                        className="rounded border border-[#1d3658] bg-[#11233d] px-3 py-1 text-xs font-medium text-[#9cb3cf] transition-colors hover:border-[#2b4f7c] hover:text-[#f0f5fc]"
                       >
                         Compare Top {Math.min(3, graphData.nodes.length)}
                       </button>
@@ -1270,17 +1231,14 @@ function GraphPageContent() {
               {/* Loading State */}
               {isLoadingGraph && (
                 <div
-                  className="flex h-[520px] items-center justify-center rounded-2xl border border-[#1e385c] bg-[#081526]"
+                  className="flex h-[480px] items-center justify-center rounded-lg border border-[#1d3658] bg-[#071526]"
                   role="status"
                   aria-live="polite"
                 >
                   <div className="text-center p-6">
-                    <span className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-                    <p className="mt-3 text-sm font-semibold text-[#eaf2ff]">
+                    <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                    <p className="mt-3 text-xs sm:text-sm font-semibold text-[#f0f5fc]">
                       Building relationship graph from arXiv metadata…
-                    </p>
-                    <p className="mt-1 text-xs text-[#5e779a]">
-                      Detecting co-authorship collaboration and category overlaps.
                     </p>
                   </div>
                 </div>
@@ -1289,59 +1247,53 @@ function GraphPageContent() {
               {/* Error State */}
               {!isLoadingGraph && graphError && (
                 <div
-                  className="flex h-[520px] flex-col items-center justify-center rounded-2xl border border-rose-500/40 bg-rose-500/10 p-8 text-center"
+                  className="flex h-[480px] flex-col items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 p-6 text-center"
                   role="alert"
                 >
-                  <p className="text-sm font-semibold text-rose-300">{graphError}</p>
-                  <p className="mt-2 text-xs text-rose-200">
-                    Try reloading from search results.
-                  </p>
+                  <p className="text-xs sm:text-sm font-semibold text-rose-300">{graphError}</p>
                 </div>
               )}
 
               {/* Empty Graph Nodes */}
               {!isLoadingGraph && !graphError && graphData && graphData.nodes.length === 0 && (
                 <div
-                  className="flex h-[520px] items-center justify-center rounded-2xl border border-[#1e385c] bg-[#081526] p-8 text-center"
+                  className="flex h-[480px] items-center justify-center rounded-lg border border-[#1d3658] bg-[#071526] p-6 text-center"
                   role="status"
                 >
-                  <div>
-                    <p className="font-semibold text-base text-[#eaf2ff]">No nodes returned</p>
-                    <p className="mt-1 text-xs text-[#9cb1ce]">
-                      The selected paper IDs could not be fetched from arXiv.
-                    </p>
-                  </div>
+                  <p className="text-sm font-medium text-[#9cb3cf]">
+                    No nodes returned for selected IDs.
+                  </p>
                 </div>
               )}
 
-              {/* SVG Canvas Centerpiece */}
+              {/* SVG Canvas */}
               {!isLoadingGraph && !graphError && graphData && graphData.nodes.length > 0 && (
-                <div className="relative">
-                  <div className="relative overflow-hidden rounded-2xl border border-[#1e385c] bg-[#030b15] shadow-2xl">
+                <div className="flex flex-col gap-2.5">
+                  <div className="relative overflow-hidden rounded-lg border border-[#1d3658] bg-[#040e1b]">
                     <svg
                       ref={svgRef}
                       viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-                      className="w-full cursor-grab active:cursor-grabbing transition-all select-none"
+                      className="w-full cursor-grab active:cursor-grabbing select-none"
                       style={{
-                        height: "clamp(460px, 65vh, 680px)",
+                        height: "clamp(440px, 62vh, 640px)",
                       }}
                       role="img"
                       aria-label={`Research relationship graph with ${graphData.nodes.length} papers`}
                     />
 
-                    {/* Canvas Instruction Pill */}
-                    <div className="pointer-events-none absolute bottom-3 right-3 hidden sm:flex items-center gap-1.5 rounded-lg border border-[#1e385c]/80 bg-[#0c1a2e]/90 px-2.5 py-1 text-[11px] font-mono text-[#5e779a] backdrop-blur-md">
-                      <span>Click node to inspect • Drag canvas to pan</span>
+                    {/* Canvas Instruction */}
+                    <div className="pointer-events-none absolute bottom-2.5 right-2.5 hidden sm:flex items-center rounded border border-[#1d3658] bg-[#0c1a2e]/90 px-2 py-0.5 text-[11px] text-[#607899] backdrop-blur-sm">
+                      <span>Click node to inspect · Drag to pan</span>
                     </div>
                   </div>
 
                   {/* Category Color Legend */}
                   {categoryColorMap.size > 0 && (
                     <div
-                      className="mt-3.5 flex flex-wrap items-center gap-2"
+                      className="flex flex-wrap items-center gap-1.5 text-xs"
                       aria-label="Node color legend by category"
                     >
-                      <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#5e779a]">
+                      <span className="font-mono text-xs font-medium text-[#607899] mr-1">
                         Categories:
                       </span>
                       {Array.from(categoryColorMap.entries()).map(([cat, color]) => {
@@ -1349,15 +1301,15 @@ function GraphPageContent() {
                         return (
                           <div
                             key={cat}
-                            className="flex items-center gap-1.5 rounded-full border border-[#1e385c] bg-[#081526] px-2.5 py-1 text-xs"
+                            className="flex items-center gap-1.5 rounded border border-[#1d3658] bg-[#071526] px-2 py-0.5"
                           >
                             <span
-                              className="inline-block h-2.5 w-2.5 rounded-full"
+                              className="inline-block h-2 w-2 rounded-full"
                               style={{ backgroundColor: color }}
                               aria-hidden="true"
                             />
-                            <span className="font-mono text-[#9cb1ce]">{cat}</span>
-                            <span className="rounded-full bg-[#11223b] px-1.5 text-[10px] font-mono text-[#5e779a]">
+                            <span className="font-mono text-[#9cb3cf] text-[11px]">{cat}</span>
+                            <span className="rounded bg-[#11233d] px-1 text-[10px] font-mono text-[#607899]">
                               {count}
                             </span>
                           </div>
@@ -1366,48 +1318,45 @@ function GraphPageContent() {
                     </div>
                   )}
 
-                  {/* Edge Relationship Legend Bar */}
+                  {/* Edge Relationship Legend Bar with Required Exact Text */}
                   <div
-                    className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e385c] bg-[#081526] p-3 text-xs text-[#9cb1ce]"
+                    className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-[#1d3658] bg-[#071526] p-2.5 text-xs text-[#9cb3cf]"
                     aria-label="Edge type legend"
                   >
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
                       <span className="flex items-center gap-1.5">
                         <span
-                          className="inline-block h-2 w-5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"
+                          className="inline-block h-1.5 w-3.5 rounded-full bg-cyan-400"
                           aria-hidden="true"
                         />
-                        <span><strong className="text-[#eaf2ff]">Solid cyan:</strong> Shared author(s)</span>
+                        <span><strong className="text-[#f0f5fc]">Solid cyan:</strong> Shared author(s)</span>
                       </span>
                       <span className="flex items-center gap-1.5">
                         <span
-                          className="inline-block h-0 w-5 border-b-2 border-dashed border-[#64748b]"
+                          className="inline-block h-0 w-3.5 border-b-2 border-dashed border-[#64748b]"
                           aria-hidden="true"
                         />
-                        <span><strong className="text-[#eaf2ff]">Dashed grey:</strong> Shared arXiv field</span>
+                        <span><strong className="text-[#f0f5fc]">Dashed grey:</strong> Shared arXiv field</span>
                       </span>
                     </div>
-                    <span className="text-[11px] font-medium text-amber-400">
-                      ⚠ Relationships show collaboration &amp; field similarity — NOT citations.
+                    <span className="text-[11px] text-[#9cb3cf]">
+                      Relationships show collaboration &amp; field similarity — NOT citations
                     </span>
                   </div>
                 </div>
               )}
             </section>
 
-            {/* Details Sidebar (4 cols on lg/xl = ~30-33%) */}
+            {/* Details Sidebar (4 cols on lg/xl) */}
             <aside
               ref={detailsAsideRef}
-              className="lg:col-span-4 rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-5 sm:p-6 shadow-xl flex flex-col gap-4 relative overflow-hidden"
+              className="lg:col-span-4 rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-5 shadow-sm flex flex-col gap-3.5 lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] overflow-y-auto"
               aria-label="Selected paper details"
             >
-              {/* Gradient Top Accent */}
-              <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-[#38bdf8] to-emerald-400" />
-
-              <div className="flex items-center justify-between border-b border-[#1e385c]/80 pb-3">
+              <div className="flex items-center justify-between border-b border-[#1d3658] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-cyan-400 text-sm font-bold">📄</span>
-                  <h2 className="text-base font-bold text-[#eaf2ff]">
+                  <span className="text-cyan-400 text-xs font-bold" aria-hidden="true">📄</span>
+                  <h2 className="text-sm font-bold text-[#f0f5fc]">
                     Paper Details
                   </h2>
                 </div>
@@ -1415,7 +1364,7 @@ function GraphPageContent() {
                   <button
                     type="button"
                     onClick={() => setSelectedNodeId(null)}
-                    className="rounded-md border border-[#1e385c] bg-[#11223b] px-2 py-0.5 text-xs text-[#9cb1ce] hover:text-[#eaf2ff]"
+                    className="rounded border border-[#1d3658] bg-[#11233d] px-2 py-0.5 text-xs text-[#9cb3cf] hover:text-[#f0f5fc]"
                     aria-label="Deselect paper"
                   >
                     ✕ Close
@@ -1425,19 +1374,17 @@ function GraphPageContent() {
 
               {/* State when NO paper is selected */}
               {!selectedNode && (
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4 text-xs leading-relaxed text-[#9cb1ce]">
+                <div className="space-y-3">
+                  <p className="text-xs text-[#9cb3cf] leading-relaxed">
                     Click any node in the graph, select from the dropdown above, or choose a paper from the list below to inspect its abstract, connections, and AI summary.
-                  </div>
+                  </p>
 
                   {graphData && graphData.nodes.length > 0 && (
-                    <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
-                      <div className="mb-3 flex items-center justify-between">
-                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
-                          Papers in Graph ({graphData.nodes.length})
-                        </span>
-                      </div>
-                      <ul className="space-y-1.5 overflow-y-auto max-h-[380px] pr-1">
+                    <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-3">
+                      <span className="font-mono text-xs font-semibold text-cyan-400 block mb-2">
+                        Papers in Graph ({graphData.nodes.length})
+                      </span>
+                      <ul className="space-y-1 overflow-y-auto max-h-[340px] pr-1">
                         {graphData.nodes.map((node) => (
                           <li key={node.id}>
                             <button
@@ -1448,12 +1395,12 @@ function GraphPageContent() {
                                   detailsAsideRef.current?.scrollIntoView?.({ behavior: "smooth" });
                                 }
                               }}
-                              className="w-full text-left rounded-lg p-2.5 text-xs transition-all hover:bg-[#11223b] flex flex-col gap-1 border border-transparent hover:border-[#1e385c]"
+                              className="w-full text-left rounded p-2 text-xs transition-colors hover:bg-[#11233d] flex flex-col gap-0.5 border border-transparent hover:border-[#1d3658]"
                             >
-                              <span className="font-semibold text-[#eaf2ff] line-clamp-1">
+                              <span className="font-medium text-[#f0f5fc] line-clamp-1">
                                 {node.title}
                               </span>
-                              <div className="flex items-center justify-between font-mono text-[10px] text-[#5e779a]">
+                              <div className="flex items-center justify-between font-mono text-[10px] text-[#607899]">
                                 <span>arXiv:{node.id}</span>
                                 <span className="text-cyan-400">{primaryCategory(node)}</span>
                               </div>
@@ -1468,47 +1415,37 @@ function GraphPageContent() {
 
               {/* State when a paper IS selected */}
               {selectedNode && (
-                <div className="space-y-4">
-                  {/* arXiv ID + Category Badges Row */}
+                <div className="space-y-3.5">
+                  {/* Category & arXiv Badges */}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 font-mono text-xs">
-                      <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-semibold text-cyan-400">
+                    <div className="flex items-center gap-1 font-mono text-xs">
+                      <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-medium text-cyan-400">
                         arXiv:{selectedNode.id}
                       </span>
-                      <span className="rounded-md border border-[#1e385c] bg-[#11223b] px-2 py-0.5 text-[#9cb1ce]">
+                      <span className="rounded border border-[#1d3658] bg-[#11233d] px-1.5 py-0.5 text-[#9cb3cf]">
                         [{primaryCategory(selectedNode)}]
                       </span>
                     </div>
 
-                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-emerald-400">
+                    <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-400">
                       {Math.round(selectedNode.relevance_score * 100)}% Sim
                     </span>
                   </div>
 
-                  {/* Title & Metadata Card */}
-                  <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
-                    <h3 className="text-sm sm:text-base font-bold leading-snug text-[#eaf2ff]">
+                  {/* Title & Authors */}
+                  <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-3.5">
+                    <h3 className="text-sm font-semibold leading-snug text-[#f0f5fc]">
                       {selectedNode.title}
                     </h3>
-                    <p className="mt-2 text-xs text-[#9cb1ce] line-clamp-2">
+                    <p className="mt-1.5 text-xs text-[#9cb3cf] line-clamp-2">
                       {selectedNode.authors.join(", ") || "Unknown authors"}
                     </p>
-                    <p className="mt-1 text-[11px] text-[#5e779a]">
+                    <p className="mt-1 text-[11px] text-[#607899]">
                       Published: {formatDate(selectedNode.published)}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {selectedNode.categories.map((category) => (
-                        <span
-                          key={`${selectedNode.id}-${category}`}
-                          className="rounded border border-[#1e385c] bg-[#11223b] px-1.5 py-0.5 font-mono text-[10px] text-[#9cb1ce]"
-                        >
-                          {category}
-                        </span>
-                      ))}
-                    </div>
                   </div>
 
-                  {/* Primary Action Buttons Bar */}
+                  {/* External Links */}
                   <div className="grid grid-cols-2 gap-2">
                     <a
                       href={
@@ -1517,7 +1454,7 @@ function GraphPageContent() {
                       }
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#1e385c] bg-[#11223b] py-2 px-3 text-xs font-semibold text-[#eaf2ff] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#1d3658] bg-[#11233d] py-1.5 px-3 text-xs font-medium text-[#f0f5fc] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                       aria-label={`Open arXiv abstract page for: ${selectedNode.title}`}
                     >
                       <span>arXiv ↗</span>
@@ -1530,22 +1467,22 @@ function GraphPageContent() {
                       }
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-400/15 border border-cyan-400/40 py-2 px-3 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg bg-cyan-400/15 border border-cyan-400/40 py-1.5 px-3 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                       aria-label={`Open PDF for: ${selectedNode.title}`}
                     >
                       <span>View PDF ↗</span>
                     </a>
                   </div>
 
-                  {/* Compare and Summarize Actions */}
+                  {/* Actions: Compare & Summarize */}
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => toggleCompare(selectedNode.id)}
-                      className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
+                      className={`flex-1 inline-flex items-center justify-center gap-1 rounded-lg py-1.5 px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                         selectedForCompare.includes(selectedNode.id)
                           ? "border border-cyan-400/50 bg-cyan-500/20 text-cyan-300"
-                          : "border border-[#1e385c] bg-[#081526] text-[#9cb1ce] hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+                          : "border border-[#1d3658] bg-[#071526] text-[#9cb3cf] hover:border-[#2b4f7c] hover:text-[#f0f5fc]"
                       }`}
                       aria-pressed={selectedForCompare.includes(selectedNode.id)}
                       aria-label={
@@ -1561,7 +1498,7 @@ function GraphPageContent() {
                       type="button"
                       onClick={summarizeSelectedNode}
                       disabled={summaryLoading}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 py-2 px-3 text-xs font-bold text-[#04121e] shadow-md transition-all hover:from-cyan-300 hover:to-cyan-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-cyan-400 py-1.5 px-3 text-xs font-bold text-[#04121e] transition-colors hover:bg-cyan-300 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                       aria-label={
                         summaryLoading
                           ? "Generating summary…"
@@ -1575,43 +1512,43 @@ function GraphPageContent() {
                         </>
                       ) : (
                         <>
-                          <span>✦</span>
+                          <span aria-hidden="true">✦</span>
                           <span>Summarize</span>
                         </>
                       )}
                     </button>
                   </div>
 
-                  {/* Connected Papers in Graph (Non-citation relationships) */}
+                  {/* Connected Papers (Non-citation relationships) */}
                   {connectedPapers.length > 0 && (
-                    <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                    <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="font-mono text-xs font-semibold text-cyan-400">
                           Connected in Graph ({connectedPapers.length})
                         </span>
-                        <span className="text-[10px] text-[#5e779a] italic">
+                        <span className="text-[10px] text-[#607899] italic">
                           Non-citation
                         </span>
                       </div>
-                      <ul className="space-y-2 text-xs max-h-48 overflow-y-auto pr-1" aria-label="Connected papers">
+                      <ul className="space-y-1.5 text-xs max-h-40 overflow-y-auto pr-1" aria-label="Connected papers">
                         {connectedPapers.map(({ paper, edgeType, weight }) => (
                           <li
                             key={`${paper.id}-${edgeType}`}
-                            className="flex items-center justify-between gap-2 rounded-lg border border-[#1e385c]/60 bg-[#0c1a2e] p-2 transition-colors hover:border-cyan-500/30"
+                            className="flex items-center justify-between gap-2 rounded border border-[#1d3658]/60 bg-[#0c1a2e] p-2 transition-colors hover:border-[#2b4f7c]"
                           >
                             <button
                               type="button"
                               onClick={() => setSelectedNodeId(paper.id)}
-                              className="flex-1 text-left font-medium text-[#eaf2ff] line-clamp-1 hover:text-cyan-300 hover:underline transition-colors"
+                              className="flex-1 text-left font-medium text-[#f0f5fc] line-clamp-1 hover:text-cyan-300 hover:underline transition-colors"
                               title={`Inspect ${paper.title}`}
                             >
                               {paper.title}
                             </button>
                             <span
-                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
                                 edgeType === "co-author"
                                   ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                                  : "bg-[#11223b] text-[#9cb1ce] border border-[#1e385c]"
+                                  : "bg-[#11233d] text-[#9cb3cf] border border-[#1d3658]"
                               }`}
                             >
                               {edgeType === "co-author"
@@ -1625,10 +1562,10 @@ function GraphPageContent() {
                   )}
 
                   {/* Abstract Section */}
-                  <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
+                  <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-3">
                     {detailsLoading && (
-                      <div className="flex items-center gap-2.5 py-2 text-xs text-cyan-400">
-                        <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                      <div className="flex items-center gap-2 py-1 text-xs text-cyan-400">
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
                         <p aria-live="polite">Loading abstract…</p>
                       </div>
                     )}
@@ -1641,10 +1578,10 @@ function GraphPageContent() {
 
                     {!detailsLoading && !detailsError && (
                       <>
-                        <span className="mb-2 block font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                        <span className="mb-1.5 block font-mono text-xs font-semibold text-cyan-400">
                           Abstract
                         </span>
-                        <p className="text-xs text-[#9cb1ce] leading-relaxed max-h-48 overflow-y-auto pr-1">
+                        <p className="text-xs text-[#9cb3cf] leading-relaxed max-h-44 overflow-y-auto pr-1">
                           {selectedDetails?.abstract ?? "Abstract unavailable."}
                         </p>
                       </>
@@ -1654,7 +1591,7 @@ function GraphPageContent() {
                   {/* Summary error with retry */}
                   {summaryError && (
                     <div
-                      className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300 flex flex-col gap-2"
+                      className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300 flex flex-col gap-2"
                       role="alert"
                     >
                       <p>{summaryError}</p>
@@ -1662,7 +1599,7 @@ function GraphPageContent() {
                         type="button"
                         onClick={summarizeSelectedNode}
                         disabled={summaryLoading}
-                        className="rounded-lg bg-rose-700 hover:bg-rose-600 px-3 py-1 text-xs font-bold text-white self-start transition-colors"
+                        className="rounded bg-rose-700 hover:bg-rose-600 px-3 py-1 text-xs font-bold text-white self-start transition-colors"
                         aria-label={`Retry summary for ${selectedNode?.title || "selected paper"}`}
                       >
                         Retry
@@ -1673,23 +1610,23 @@ function GraphPageContent() {
                   {/* Generated AI Summary */}
                   {summaryText && (
                     <div
-                      className="rounded-xl border border-cyan-500/30 bg-[#081526] p-4 space-y-2"
+                      className="rounded-lg border border-cyan-500/30 bg-[#071526] p-3.5 space-y-1.5"
                       role="region"
                       aria-label="AI-generated summary"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                        <span className="font-mono text-xs font-semibold text-cyan-400">
                           AI Summary
                         </span>
-                        <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-cyan-400">
+                        <span className="rounded border border-[#1d3658] bg-[#11233d] px-1.5 py-0.2 font-mono text-[10px] text-[#9cb3cf]">
                           Groq Llama 3.1 8B
                         </span>
                       </div>
-                      <p className="text-xs text-[#eaf2ff] leading-relaxed">
+                      <p className="text-xs text-[#f0f5fc] leading-relaxed">
                         {summaryText}
                       </p>
-                      <p className="text-[10px] text-[#5e779a]">
-                        ⚠ Based on author abstract only — not full paper text.
+                      <p className="text-[10px] text-[#607899]">
+                        ⚠ Grounded on title &amp; abstract only — not full paper text.
                       </p>
                     </div>
                   )}
@@ -1702,7 +1639,7 @@ function GraphPageContent() {
         {/* Node Hover Tooltip */}
         {tooltip && (
           <div
-            className="pointer-events-none fixed z-50 max-w-72 rounded-xl border border-[#1e385c] bg-[#0c1a2e]/98 p-3.5 text-xs text-[#eaf2ff] shadow-2xl backdrop-blur-md"
+            className="pointer-events-none fixed z-50 max-w-72 rounded-lg border border-[#1d3658] bg-[#0c1a2e]/98 p-3 text-xs text-[#f0f5fc] shadow-xl backdrop-blur-sm"
             style={{
               left: Math.min(tooltip.x + 16, window.innerWidth - 300),
               top: tooltip.y + 16,
@@ -1712,10 +1649,10 @@ function GraphPageContent() {
             <p className="mb-1 line-clamp-2 text-xs font-bold text-cyan-400 leading-snug">
               {tooltip.node.title}
             </p>
-            <p className="text-[#9cb1ce] text-[11px]">
+            <p className="text-[#9cb3cf] text-[11px]">
               {tooltip.node.authors.slice(0, 3).join(", ") || "Unknown authors"}
             </p>
-            <p className="mt-1 text-[10px] text-[#5e779a]">
+            <p className="mt-1 text-[10px] text-[#607899]">
               {formatDate(tooltip.node.published)}
             </p>
             {tooltip.node.categories.length > 0 && (
@@ -1729,16 +1666,16 @@ function GraphPageContent() {
         {/* Edge Hover Tooltip */}
         {edgeTooltip && (
           <div
-            className="pointer-events-none fixed z-50 max-w-80 rounded-xl border border-[#1e385c] bg-[#0c1a2e]/98 p-3.5 text-xs text-[#eaf2ff] shadow-2xl backdrop-blur-md"
+            className="pointer-events-none fixed z-50 max-w-80 rounded-lg border border-[#1d3658] bg-[#0c1a2e]/98 p-3 text-xs text-[#f0f5fc] shadow-xl backdrop-blur-sm"
             style={{
               left: Math.min(edgeTooltip.x + 16, window.innerWidth - 330),
               top: edgeTooltip.y + 16,
             }}
             role="tooltip"
           >
-            <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="flex items-center gap-1.5 mb-1">
               <span
-                className="inline-block h-2 w-4 rounded-sm"
+                className="inline-block h-2 w-3 rounded-sm"
                 style={{
                   backgroundColor:
                     edgeTooltip.edge.type === "co-author"
@@ -1752,21 +1689,21 @@ function GraphPageContent() {
                   : "Shared Research Field Connection"}
               </span>
             </div>
-            <p className="line-clamp-1 font-semibold text-xs text-[#eaf2ff]">
+            <p className="line-clamp-1 font-semibold text-xs text-[#f0f5fc]">
               {edgeTooltip.sourceNode.title}
             </p>
-            <p className="text-[10px] my-0.5 text-[#5e779a]">
+            <p className="text-[10px] my-0.5 text-[#607899]">
               ↔ linked with ↔
             </p>
-            <p className="line-clamp-1 font-semibold text-xs mb-2 text-[#eaf2ff]">
+            <p className="line-clamp-1 font-semibold text-xs mb-1.5 text-[#f0f5fc]">
               {edgeTooltip.targetNode.title}
             </p>
-            <p className="text-[11px] text-[#9cb1ce]">
+            <p className="text-[11px] text-[#9cb3cf]">
               {edgeTooltip.edge.type === "co-author"
                 ? `These papers share ${edgeTooltip.edge.weight} author(s) in common.`
                 : `These papers share ${edgeTooltip.edge.weight} arXiv primary category/categories.`}
             </p>
-            <p className="mt-1.5 text-[10px] font-medium text-amber-400">
+            <p className="mt-1 text-[10px] font-medium text-amber-400">
               ⚠ Collaboration / field connection — NOT a citation.
             </p>
           </div>
@@ -1780,11 +1717,15 @@ function GraphPageContent() {
 
 function GraphPageFallback() {
   return (
-    <div className="min-h-screen bg-[#051424] text-[#eaf2ff]">
+    <div className="min-h-screen bg-[#051424] text-[#f0f5fc]">
       <div className="page-container py-12 flex items-center justify-center">
-        <div className="flex h-72 w-full max-w-md flex-col items-center justify-center rounded-2xl border border-[#1e385c] bg-[#0c1a2e]" role="status" aria-live="polite">
-          <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-          <p className="mt-3 text-sm font-semibold text-[#9cb1ce]">
+        <div
+          className="flex h-64 w-full max-w-md flex-col items-center justify-center rounded-xl border border-[#1d3658] bg-[#0c1a2e]"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+          <p className="mt-3 text-xs sm:text-sm font-semibold text-[#9cb3cf]">
             Loading research graph…
           </p>
         </div>

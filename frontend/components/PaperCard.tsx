@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 export type PaperResult = {
   arxiv_id: string;
@@ -62,115 +62,101 @@ export default function PaperCard({
   onToggleSaved,
   onSummarize,
 }: PaperCardProps) {
+  const [authorsExpanded, setAuthorsExpanded] = useState(false);
   const score = clampScore(paper.relevance_score);
   const scorePercent = (score * 100).toFixed(1);
   const arxivUrl = paper.entry_url || `https://arxiv.org/abs/${paper.arxiv_id}`;
+  const pdfUrl = paper.pdf_url || `https://arxiv.org/pdf/${paper.arxiv_id}`;
+
+  const hasManyAuthors = paper.authors.length > 5;
+  const displayedAuthors =
+    hasManyAuthors && !authorsExpanded
+      ? paper.authors.slice(0, 4).join(", ")
+      : paper.authors.join(", ");
 
   return (
     <article
       id={`paper-${paper.arxiv_id}`}
-      className={`group relative flex flex-col justify-between rounded-2xl p-5 sm:p-6 transition-all duration-200 border ${
+      className={`group relative flex flex-col justify-between rounded-xl p-5 sm:p-6 transition-all duration-200 border scroll-mt-20 ${
         inGraph
-          ? "border-cyan-400/50 bg-[#0c1c33] shadow-[0_4px_24px_rgba(34,211,238,0.12)]"
-          : "border-[#1e385c] bg-[#0c1a2e] hover:border-[#2a4d7d] hover:bg-[#0f2038] shadow-md hover:shadow-xl"
-      } focus-within:ring-2 focus-within:ring-cyan-400`}
+          ? "border-cyan-400/50 bg-[#0c1d33] shadow-[0_4px_20px_rgba(34,211,238,0.1)]"
+          : "border-[#1d3658] bg-[#0c1a2e] hover:border-[#2b4f7c] hover:bg-[#0f213a] shadow-sm hover:shadow-md"
+      }`}
       aria-label={`Paper: ${paper.title}`}
     >
       <div className="flex flex-col gap-3">
-        {/* Top Metadata Row */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 flex-wrap" aria-label="Paper categories">
-            {paper.categories.slice(0, 3).map((category, idx) => (
-              <span
-                key={`${paper.arxiv_id}-${category}`}
-                className={`rounded-md px-2 py-0.5 text-[11px] font-mono font-medium ${
-                  idx === 0
-                    ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"
-                    : "bg-[#11223b] text-[#9cb1ce] border border-[#1e385c]"
-                }`}
-              >
-                {category}
-              </span>
-            ))}
-            {paper.categories.length > 3 && (
-              <span className="text-[10px] font-mono text-[#5e779a]">
-                +{paper.categories.length - 3}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#5e779a]">
-              {formatDate(paper.published)}
-            </span>
-            <a
-              href={arxivUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="shrink-0 rounded-md border border-[#1e385c] bg-[#11223b] px-2 py-0.5 font-mono text-[11px] font-semibold text-cyan-400/90 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-              aria-label={`arXiv abstract for ${paper.arxiv_id}`}
-              title="Open arXiv abstract page"
-            >
-              arXiv:{paper.arxiv_id}
-            </a>
-          </div>
-        </div>
-
-        {/* Paper Title */}
-        <h4 className="text-base sm:text-lg font-semibold leading-snug tracking-tight text-[#eaf2ff] group-hover:text-cyan-300 transition-colors">
+        {/* 1. Title (Full readability, no premature truncations) */}
+        <h4 className="text-base sm:text-lg font-semibold leading-snug tracking-tight text-[#f0f5fc] transition-colors group-hover:text-cyan-300">
           <a
             href={arxivUrl}
             target="_blank"
             rel="noreferrer"
-            className="hover:underline focus-visible:outline-none"
+            className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
           >
             {paper.title}
           </a>
         </h4>
 
-        {/* Authors */}
-        <p className="text-xs text-[#9cb1ce] line-clamp-1">
-          {paper.authors.slice(0, 4).join(", ") || "Unknown authors"}
-          {paper.authors.length > 4 && ` +${paper.authors.length - 4} more`}
-        </p>
+        {/* 2. Authors and Publication Date */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#9cb3cf]">
+          <span>
+            {displayedAuthors || "Unknown authors"}
+            {hasManyAuthors && !authorsExpanded && (
+              <button
+                type="button"
+                onClick={() => setAuthorsExpanded(true)}
+                className="ml-1 text-cyan-400 hover:underline"
+              >
+                +{paper.authors.length - 4} more
+              </button>
+            )}
+            {hasManyAuthors && authorsExpanded && (
+              <button
+                type="button"
+                onClick={() => setAuthorsExpanded(false)}
+                className="ml-1 text-[#607899] hover:underline"
+              >
+                (show less)
+              </button>
+            )}
+          </span>
+          <span className="text-[#607899]" aria-hidden="true">·</span>
+          <time dateTime={paper.published} className="text-[#607899] shrink-0">
+            {formatDate(paper.published)}
+          </time>
+        </div>
 
-        {/* Relevance Score (Vector Cosine Similarity Meter) */}
-        {paper.relevance_score !== null && !paper.ranking_degraded && (
-          <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-2.5 my-0.5">
-            <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#9cb1ce]">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                <span>Cosine similarity</span>
-                <span
-                  className="cursor-help rounded-full bg-[#11223b] px-1 text-[10px] text-[#5e779a] border border-[#1e385c]"
-                  title="Vector cosine similarity to search query text. Reflects query semantic relevance, not paper quality or peer review."
-                  aria-label="Cosine similarity to query text (retrieval relevance, not paper quality)"
-                >
-                  ⓘ
-                </span>
+        {/* 3. arXiv Link and Categories */}
+        <div className="flex items-center justify-between gap-2 flex-wrap pt-0.5">
+          <div className="flex items-center gap-1.5 flex-wrap" aria-label="Paper categories">
+            {paper.categories.map((category, idx) => (
+              <span
+                key={`${paper.arxiv_id}-${category}`}
+                className={`rounded px-2 py-0.5 font-mono text-[11px] font-medium ${
+                  idx === 0
+                    ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
+                    : "bg-[#11233d] text-[#9cb3cf] border border-[#1d3658]"
+                }`}
+              >
+                {category}
               </span>
-              <span className="font-mono text-xs font-bold text-cyan-400">
-                {scorePercent}%
-              </span>
-            </div>
-            <div
-              className="h-1.5 w-full overflow-hidden rounded-full bg-[#11223b]"
-              role="meter"
-              aria-label={`Query semantic similarity: ${scorePercent}% (retrieval relevance, not paper quality)`}
-              aria-valuenow={Math.round(score * 100)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-[#38bdf8] transition-all duration-300"
-                style={{ width: `${scorePercent}%` }}
-              />
-            </div>
+            ))}
           </div>
-        )}
 
-        {/* Abstract */}
-        <div className="text-xs sm:text-sm text-[#9cb1ce] leading-relaxed">
+          <a
+            href={arxivUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded border border-[#1d3658] bg-[#11233d] px-2 py-0.5 font-mono text-[11px] font-medium text-cyan-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+            aria-label={`arXiv abstract for ${paper.arxiv_id}`}
+            title="Open abstract page on arXiv"
+          >
+            arXiv:{paper.arxiv_id}
+          </a>
+        </div>
+
+        {/* 4. Concise Abstract Preview with Expansion Toggle */}
+        <div className="text-xs sm:text-sm text-[#9cb3cf] leading-relaxed pt-1">
           <p className={abstractExpanded ? "leading-relaxed" : "line-clamp-3 leading-relaxed"}>
             {paper.abstract}
           </p>
@@ -186,17 +172,51 @@ export default function PaperCard({
             </button>
           )}
         </div>
+
+        {/* 5. Relevance (Vector Cosine Similarity to Query Text) */}
+        {paper.relevance_score !== null && !paper.ranking_degraded && (
+          <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-2.5 my-1">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#9cb3cf]">
+                <span>Semantic relevance</span>
+                <span
+                  className="cursor-help rounded bg-[#11233d] px-1 text-[10px] text-[#607899] border border-[#1d3658]"
+                  title="Vector cosine similarity to search query text. Reflects query semantic relevance, not paper quality or citation impact."
+                  aria-label="Cosine similarity to query text (retrieval relevance, not paper quality)"
+                >
+                  ⓘ
+                </span>
+              </span>
+              <span className="font-mono text-xs font-semibold text-cyan-400">
+                {scorePercent}%
+              </span>
+            </div>
+            <div
+              className="h-1.5 w-full overflow-hidden rounded-full bg-[#11233d]"
+              role="meter"
+              aria-label={`Query semantic similarity: ${scorePercent}% (retrieval relevance, not paper quality)`}
+              aria-valuenow={Math.round(score * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+                style={{ width: `${scorePercent}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Action Toolbar */}
-      <div className="mt-4 pt-3.5 border-t border-[#1e385c]/80 flex flex-wrap items-center justify-between gap-2">
-        {/* Primary and quick toggles */}
+      {/* 6. Action Toolbar with Clear Priority Hierarchy */}
+      <div className="mt-4 pt-3.5 border-t border-[#1d3658] flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Primary Action: Summarize Paper */}
           <button
             type="button"
             onClick={() => onSummarize(paper.arxiv_id)}
             disabled={summaryState?.loading}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/40 px-3 py-1.5 text-xs font-bold text-cyan-300 transition-all hover:bg-cyan-500/25 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-400/15 border border-cyan-400/40 px-3 py-1.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label={
               summaryState?.loading
                 ? "Generating summary…"
@@ -216,13 +236,14 @@ export default function PaperCard({
             )}
           </button>
 
+          {/* Secondary Action: Add to Graph */}
           <button
             type="button"
             onClick={() => onToggleGraph(paper.arxiv_id)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
               inGraph
-                ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-400"
-                : "bg-[#11223b] border border-[#1e385c] text-[#9cb1ce] hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+                ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-semibold"
+                : "bg-[#11233d] border border-[#1d3658] text-[#9cb3cf] hover:border-[#2b4f7c] hover:text-[#f0f5fc]"
             }`}
             aria-pressed={inGraph}
             aria-label={
@@ -234,13 +255,14 @@ export default function PaperCard({
             {inGraph ? "✓ In Graph" : "Add to Graph"}
           </button>
 
+          {/* Secondary Action: Add to Compare */}
           <button
             type="button"
             onClick={() => onToggleCompare(paper.arxiv_id)}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
               inCompare
-                ? "bg-cyan-500/20 border border-cyan-400/50 text-cyan-300"
-                : "bg-[#11223b] border border-[#1e385c] text-[#9cb1ce] hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+                ? "bg-cyan-500/15 border border-cyan-400/40 text-cyan-300 font-semibold"
+                : "bg-[#11233d] border border-[#1d3658] text-[#9cb3cf] hover:border-[#2b4f7c] hover:text-[#f0f5fc]"
             }`}
             aria-pressed={inCompare}
             aria-label={
@@ -252,13 +274,14 @@ export default function PaperCard({
             <span>{inCompare ? "✓ In Compare" : "+ Compare"}</span>
           </button>
 
+          {/* Secondary Action: Save to Reading List */}
           <button
             type="button"
             onClick={() => onToggleSaved(paper)}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
               isSaved
-                ? "bg-amber-500/15 border border-amber-500/40 text-amber-400"
-                : "bg-[#11223b] border border-[#1e385c] text-[#9cb1ce] hover:border-amber-500/40 hover:text-amber-300"
+                ? "bg-amber-500/15 border border-amber-500/40 text-amber-400 font-semibold"
+                : "bg-[#11233d] border border-[#1d3658] text-[#9cb3cf] hover:border-amber-500/40 hover:text-amber-300"
             }`}
             aria-pressed={isSaved}
             aria-label={
@@ -271,23 +294,23 @@ export default function PaperCard({
           </button>
         </div>
 
-        {/* External direct links */}
-        <div className="flex items-center gap-1.5 text-xs">
+        {/* External Links */}
+        <div className="flex items-center gap-1 text-xs">
           <a
             href={arxivUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-[#1e385c] bg-[#11223b] px-2 py-1 font-mono text-[11px] font-semibold text-[#9cb1ce] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-2 py-1 font-mono text-[11px] font-medium text-[#9cb3cf] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
             aria-label={`Open arXiv abstract page for: ${paper.title}`}
             title="Open abstract on arXiv"
           >
             arXiv ↗
           </a>
           <a
-            href={paper.pdf_url}
+            href={pdfUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-[#1e385c] bg-[#11223b] px-2 py-1 font-mono text-[11px] font-semibold text-cyan-400 transition-colors hover:border-cyan-400 hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-2 py-1 font-mono text-[11px] font-medium text-cyan-400 transition-colors hover:border-cyan-400 hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
             aria-label={`Open PDF for: ${paper.title}`}
             title="Open direct paper PDF"
           >
@@ -296,10 +319,10 @@ export default function PaperCard({
         </div>
       </div>
 
-      {/* Summary Accordion Drawer */}
+      {/* 7. Summary Accordion Drawer (Embedded in Card) */}
       {summaryState?.open && (
         <div
-          className="mt-3.5 rounded-xl border border-cyan-500/30 bg-[#081526] p-4 transition-all"
+          className="mt-3.5 rounded-lg border border-cyan-500/30 bg-[#071526] p-4 transition-all"
           role="region"
           aria-label={`AI summary for ${paper.title}`}
         >
@@ -338,15 +361,15 @@ export default function PaperCard({
                     AI Abstract Summary
                   </p>
                 </div>
-                <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-cyan-400">
+                <span className="rounded border border-[#1d3658] bg-[#11233d] px-1.5 py-0.2 font-mono text-[10px] text-[#9cb3cf]">
                   Groq Llama 3.1 8B
                 </span>
               </div>
-              <p className="text-xs text-[#eaf2ff] leading-relaxed">
+              <p className="text-xs text-[#f0f5fc] leading-relaxed">
                 {summaryState.summary}
               </p>
-              <p className="text-[11px] text-[#5e779a]">
-                ⚠ Grounded on title & abstract only — not full paper text.
+              <p className="text-[11px] text-[#607899]">
+                ⚠ Grounded on title &amp; abstract only — not full paper text.
               </p>
             </div>
           )}
