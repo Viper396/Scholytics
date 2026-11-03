@@ -251,7 +251,7 @@ def compare_papers(
 		differences=differences,
 		research_gaps=research_gaps,
 		disclaimer=(
-			"Comparison generated from abstracts by Llama 3.1 8B Instant. "
+			f"Comparison generated from abstracts by Groq ({_get_model_name()}). "
 			"Information not stated in abstracts is represented as 'Not explicitly reported'. "
 			"Research gaps represent model-generated interpretations based on reported limitations."
 		),

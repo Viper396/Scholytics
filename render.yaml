@@ -26,3 +26,5 @@ services:
         value: "true"
       - key: ENABLE_RERANKER
         value: "false"
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b

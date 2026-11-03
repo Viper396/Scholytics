@@ -23,7 +23,7 @@ flowchart LR
     
     subgraph External [External Managed Cloud APIs]
         Pinecone[(Pinecone Serverless Index\n384-dim, cosine, aws/us-east-1)]
-        Groq[(Groq Cloud API\nllama-3.1-8b-instant)]
+        Groq[(Groq Cloud API\nopenai/gpt-oss-20b)]
         arXiv[(arXiv Public API)]
     end
     
@@ -91,8 +91,8 @@ This repository contains a `render.yaml` blueprint:
 | `VECTOR_STORE_BACKEND` | **Yes** | `pinecone` | Mandatory for persistent storage across Render container restarts. |
 | `PINECONE_API_KEY` | **Yes** | `pcsk_...` | Pinecone secret API key. Never expose in frontend! |
 | `PINECONE_INDEX_NAME` | **Yes** | `scholytics-papers` | Target Pinecone serverless index name. |
-| `GROQ_API_KEY` | **Yes** | `gsk_...` | Groq API key for Llama 3.1 8B summarization & streaming synthesis. |
-| `GROQ_MODEL` | No | `llama-3.1-8b-instant` | Groq model selection. |
+| `GROQ_API_KEY` | **Yes** | `gsk_...` | Groq API key for LLM summarization & streaming synthesis. |
+| `GROQ_MODEL` | No | `openai/gpt-oss-20b` | Groq model selection (default: `openai/gpt-oss-20b`). Note: Legacy `llama-3.1-8b-instant` was decommissioned in Aug 2026. |
 | `FRONTEND_ORIGIN` | **Yes** | `https://scholytics.vercel.app` | Allowed CORS origin. Supports comma-separated list. |
 | `ENABLE_CACHE` | No | `true` | Bounded LRU in-memory cache (<5MB RAM). |
 | `ENABLE_RERANKER` | No | `false` | Keep `false` on Render free tier (512MB RAM limit). |
