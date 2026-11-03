@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Inter({
+const interSans = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Roboto_Mono({
+const jetbrainsMono = JetBrains_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Scholytics",
+  title: "Scholytics — Semantic Research Discovery & Synthesis",
   description:
-    "Scholytics - semantic research search, synthesis, and graph exploration.",
+    "Explore live arXiv research papers with semantic vector discovery, neural synthesis, paper comparisons, and interactive relationship topologies.",
 };
 
 export default function RootLayout({
@@ -26,9 +28,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${interSans.variable} ${jetbrainsMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-[#051424] text-[#eaf2ff] selection:bg-cyan-500/25 selection:text-white">
+        {children}
+      </body>
     </html>
   );
 }

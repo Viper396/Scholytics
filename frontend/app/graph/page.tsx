@@ -14,7 +14,6 @@ import * as d3 from "d3";
 import Nav from "../../components/Nav";
 import ComparisonMatrix, {
   ComparisonResult,
-  ComparisonPaper,
 } from "../../components/ComparisonMatrix";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -78,21 +77,21 @@ const SVG_WIDTH = 1200;
 const SVG_HEIGHT = 720;
 const GRAPH_SELECTION_STORAGE_KEY = "scholytics.selectedForGraph";
 
-// Color palette for node categories (primary category → color)
+// Color palette for node categories
 const COLOR_PALETTE = [
-  "#06b6d4", // cyan
+  "#22d3ee", // cyan
   "#38bdf8", // sky
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#fb7185", // rose
+  "#34d399", // emerald
+  "#fbbf24", // amber
+  "#f87171", // rose
   "#a78bfa", // violet
-  "#14b8a6", // teal
-  "#f97316", // orange
+  "#2dd4bf", // teal
+  "#fb923c", // orange
 ];
 
-// Edge colors distinguish relationship types
+// Edge colors
 const EDGE_COLORS = {
-  "co-author": "#06b6d4", // cyan — shared author between papers
+  "co-author": "#22d3ee", // cyan — shared author between papers
   "same-field": "#64748b", // slate/grey — shared arXiv category
 };
 
@@ -337,8 +336,8 @@ function GraphPageContent() {
     const radiusForNode = (node: SimNode) => {
       const isSmall = currentNodes.length <= 5;
       return isSmall
-        ? 14 + clampScore(node.relevance_score) * 16
-        : 8 + clampScore(node.relevance_score) * 12;
+        ? 16 + clampScore(node.relevance_score) * 18
+        : 10 + clampScore(node.relevance_score) * 14;
     };
 
     let minX = Infinity;
@@ -364,7 +363,6 @@ function GraphPageContent() {
     const availableWidth = SVG_WIDTH - padding * 2;
     const availableHeight = SVG_HEIGHT - padding * 2;
 
-    // For small graphs, fill comfortably without tiny dots in a void
     const autoScale = Math.min(
       availableWidth / dx,
       availableHeight / dy,
@@ -415,13 +413,59 @@ function GraphPageContent() {
       .domain(categories)
       .range(COLOR_PALETTE.map((_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]));
 
-    // Dynamic radius: larger nodes for small graphs to prevent tiny dots in empty space
     const radius = (node: SimNode) =>
       isSmallGraph
-        ? 14 + clampScore(node.relevance_score) * 16
+        ? 16 + clampScore(node.relevance_score) * 18
         : isMediumGraph
-        ? 10 + clampScore(node.relevance_score) * 14
-        : 8 + clampScore(node.relevance_score) * 12;
+        ? 12 + clampScore(node.relevance_score) * 14
+        : 9 + clampScore(node.relevance_score) * 12;
+
+    // Canvas Defs (Glow filters, dot matrix pattern)
+    const defs = svg.append("defs");
+
+    // Dot grid pattern
+    const pattern = defs
+      .append("pattern")
+      .attr("id", "graph-grid-pattern")
+      .attr("width", 28)
+      .attr("height", 28)
+      .attr("patternUnits", "userSpaceOnUse");
+
+    pattern
+      .append("circle")
+      .attr("cx", 2)
+      .attr("cy", 2)
+      .attr("r", 1)
+      .attr("fill", "#1e385c")
+      .attr("opacity", 0.6);
+
+    // Glowing filter
+    const glowFilter = defs
+      .append("filter")
+      .attr("id", "cyan-glow")
+      .attr("x", "-30%")
+      .attr("y", "-30%")
+      .attr("width", "160%")
+      .attr("height", "160%");
+
+    glowFilter
+      .append("feGaussianBlur")
+      .attr("stdDeviation", 6)
+      .attr("result", "blur");
+
+    glowFilter
+      .append("feComposite")
+      .attr("in", "SourceGraphic")
+      .attr("in2", "blur")
+      .attr("operator", "over");
+
+    // Background rect with dot grid
+    svg
+      .append("rect")
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr("fill", "url(#graph-grid-pattern)")
+      .attr("pointer-events", "none");
 
     const zoomLayer = svg.append("g").attr("class", "zoom-layer");
     const edgeLayer = zoomLayer.append("g").attr("class", "edges");
@@ -435,7 +479,7 @@ function GraphPageContent() {
       .join("line")
       .style("stroke", (link) => EDGE_COLORS[link.type])
       .style("stroke-width", (link) =>
-        link.type === "co-author" ? 2 + Math.min(3, link.weight - 1) : 1.5,
+        link.type === "co-author" ? 2.5 + Math.min(2.5, link.weight - 1) : 1.8,
       )
       .style("stroke-opacity", (link) =>
         link.type === "co-author" ? 0.85 : 0.45,
@@ -477,7 +521,7 @@ function GraphPageContent() {
           .style("stroke", EDGE_COLORS[link.type])
           .style(
             "stroke-width",
-            link.type === "co-author" ? 2 + Math.min(3, link.weight - 1) : 1.5,
+            link.type === "co-author" ? 2.5 + Math.min(2.5, link.weight - 1) : 1.8,
           )
           .style("stroke-opacity", link.type === "co-author" ? 0.85 : 0.45);
       });
@@ -507,8 +551,8 @@ function GraphPageContent() {
       .join("circle")
       .attr("r", radius)
       .style("fill", (node) => colorScale(primaryCategory(node)))
-      .style("stroke", "#050d1a")
-      .style("stroke-width", 2)
+      .style("stroke", "#051424")
+      .style("stroke-width", 2.5)
       .style("cursor", "pointer")
       .attr("tabindex", 0)
       .attr("role", "button")
@@ -549,10 +593,10 @@ function GraphPageContent() {
       .style("font-size", isSmallGraph ? "12px" : "11px")
       .style("font-weight", "600")
       .style("font-family", "var(--font-sans)")
-      .style("fill", "#e2e8f0")
+      .style("fill", "#eaf2ff")
       .style("pointer-events", "none")
       .style("paint-order", "stroke")
-      .style("stroke", "#050d1a")
+      .style("stroke", "#051424")
       .style("stroke-width", "3.5px")
       .style("stroke-linejoin", "round");
 
@@ -564,17 +608,17 @@ function GraphPageContent() {
         d3
           .forceLink<SimNode, SimLink>(links)
           .id((node) => node.id)
-          .distance(isSmallGraph ? 220 : isMediumGraph ? 160 : 130)
+          .distance(isSmallGraph ? 230 : isMediumGraph ? 170 : 130)
           .strength(0.4),
       )
       .force(
         "charge",
-        d3.forceManyBody().strength(isSmallGraph ? -500 : isMediumGraph ? -350 : -260),
+        d3.forceManyBody().strength(isSmallGraph ? -520 : isMediumGraph ? -370 : -280),
       )
       .force("center", d3.forceCenter(SVG_WIDTH / 2, SVG_HEIGHT / 2))
       .force(
         "collision",
-        d3.forceCollide<SimNode>().radius((node) => radius(node) + (isSmallGraph ? 24 : 16)),
+        d3.forceCollide<SimNode>().radius((node) => radius(node) + (isSmallGraph ? 26 : 18)),
       )
       .alpha(0.95)
       .alphaDecay(0.03);
@@ -644,8 +688,8 @@ function GraphPageContent() {
     if (!targetId) {
       // Normal state
       svg.selectAll<SVGCircleElement, SimNode>("circle")
-        .style("stroke", "#050d1a")
-        .style("stroke-width", 2)
+        .style("stroke", "#051424")
+        .style("stroke-width", 2.5)
         .style("opacity", 1);
 
       svg.selectAll<SVGLineElement, SimLink>("line")
@@ -664,8 +708,8 @@ function GraphPageContent() {
     }
 
     svg.selectAll<SVGCircleElement, SimNode>("circle")
-      .style("stroke", (node) => (node.id === targetId ? "#22d3ee" : connectedNodeIds.has(node.id) ? "#38bdf8" : "#050d1a"))
-      .style("stroke-width", (node) => (node.id === targetId ? 3.5 : connectedNodeIds.has(node.id) ? 2.5 : 1.5))
+      .style("stroke", (node) => (node.id === targetId ? "#22d3ee" : connectedNodeIds.has(node.id) ? "#38bdf8" : "#051424"))
+      .style("stroke-width", (node) => (node.id === targetId ? 4 : connectedNodeIds.has(node.id) ? 2.5 : 1.5))
       .style("opacity", (node) => (connectedNodeIds.has(node.id) ? 1 : 0.35));
 
     svg.selectAll<SVGLineElement, SimLink>("line")
@@ -677,7 +721,7 @@ function GraphPageContent() {
       .style("stroke-width", (link) => {
         const s = typeof link.source === "object" ? (link.source as SimNode).id : link.source;
         const t = typeof link.target === "object" ? (link.target as SimNode).id : link.target;
-        return s === targetId || t === targetId ? 3 : 1.5;
+        return s === targetId || t === targetId ? 3.5 : 1.8;
       });
 
     svg.selectAll<SVGTextElement, SimNode>("text")
@@ -854,7 +898,6 @@ function GraphPageContent() {
       return;
     }
 
-    // Pass known paper metadata from graph to avoid arXiv re-fetch
     const clientPapers = boundedIds.map((id) => {
       const node = graphData?.nodes.find((n) => n.id === id);
       const details = detailsById[id];
@@ -924,82 +967,97 @@ function GraphPageContent() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <main
-      className="min-h-screen"
-      style={{ backgroundColor: "var(--bg-page)", color: "var(--text-primary)" }}
-    >
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <Nav selectedIds={selectedForGraph} />
+    <div className="min-h-screen bg-[#051424] text-[#eaf2ff]">
+      <Nav selectedIds={selectedForGraph} />
 
-        {/* Page header with relationship clarification */}
-        <header
-          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[18px] p-5 shadow-sm"
-          style={{
-            border: "1px solid var(--border-default)",
-            backgroundColor: "var(--bg-surface)",
-          }}
-        >
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-xs"
-                style={{
-                  backgroundColor: "var(--cyan-subtle)",
-                  color: "var(--text-accent)",
-                  border: "1px solid rgba(6,182,212,0.3)",
-                }}
-                aria-hidden="true"
-              >
-                ◈
-              </span>
-              <h1
-                className="text-xl font-bold tracking-tight sm:text-2xl"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Research Relationship Graph
-              </h1>
+      <main className="page-container py-8 flex flex-col gap-6">
+        {/* Header with relationship distinction */}
+        <header className="rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-6 shadow-xl flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 text-xs font-mono text-[#9cb1ce]">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                  <span>← Back to Search</span>
+                </Link>
+                <span className="text-[#5e779a]">/</span>
+                <span className="text-[#9cb1ce]">topology://cluster</span>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+                  <span className="text-base font-bold">◈</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#eaf2ff]">
+                  Research Relationship Graph
+                </h1>
+                {graphData && graphData.nodes.length > 0 && (
+                  <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-cyan-400">
+                    {graphData.nodes.length} Papers in Graph • {visibleEdges.length} Connections
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="mt-1 text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
-              Interactive relationship map — edges represent shared authors or shared arXiv categories, <strong style={{ color: "var(--text-accent)" }}>not citation relationships</strong>.
+
+            {/* Top comparison trigger if items are selected */}
+            {graphData && graphData.nodes.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedForCompare.length >= 2) {
+                    generateComparison();
+                  } else {
+                    const autoIds = graphData.nodes.slice(0, Math.min(3, graphData.nodes.length)).map((n) => n.id);
+                    setSelectedForCompare(autoIds);
+                    generateComparison(autoIds);
+                  }
+                }}
+                disabled={isComparing}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 px-4 py-2 text-xs font-bold text-[#04121e] shadow-[0_0_16px_rgba(34,211,238,0.25)] transition-all hover:from-cyan-300 hover:to-cyan-400 shrink-0 self-start sm:self-center"
+              >
+                <span>⇄</span>
+                <span>
+                  {selectedForCompare.length >= 2
+                    ? `Open Matrix (${selectedForCompare.length} Selected)`
+                    : "Compare Papers"}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Context Clarification Banner */}
+          <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-3.5 flex items-start gap-3">
+            <span className="text-cyan-400 text-sm mt-0.5 shrink-0">ⓘ</span>
+            <p className="text-xs text-[#9cb1ce] leading-relaxed">
+              Interactive relationship map — edges represent shared authors or shared arXiv categories, <strong className="text-cyan-400 font-semibold">not citation relationships</strong>.
             </p>
           </div>
-          <Link
-            href="/"
-            className="rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-            style={{
-              border: "1px solid var(--border-default)",
-              backgroundColor: "var(--bg-elevated)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            ← Back to Search
-          </Link>
         </header>
 
         {/* Empty state — no IDs */}
         {requestedIds.length === 0 && (
           <div
-            className="rounded-[18px] p-10 text-center"
-            style={{
-              border: "1px dashed var(--border-subtle)",
-              backgroundColor: "var(--bg-surface)",
-            }}
+            className="rounded-3xl border border-dashed border-[#1e385c] bg-[#0c1a2e]/60 p-12 text-center"
             role="status"
           >
-            <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#1e385c] bg-[#11223b] text-3xl text-cyan-400 shadow-lg">
+              ◈
+            </div>
+            <p className="text-lg font-bold text-[#eaf2ff]">
               No papers selected
             </p>
-            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+            <p className="mt-2 text-xs sm:text-sm text-[#9cb1ce]">
               Go back to search, select papers using{" "}
-              <strong style={{ color: "var(--text-accent)" }}>Add to Graph</strong>,
+              <strong className="text-cyan-400 font-semibold">Add to Graph</strong>,
               then open this page.
             </p>
             <Link
               href="/"
-              className="mt-4 inline-block rounded-xl px-5 py-2 text-sm font-semibold transition-colors hover:opacity-85"
-              style={{ backgroundColor: "var(--cyan-primary)", color: "var(--cyan-text)" }}
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 px-5 py-2 text-xs font-bold text-[#04121e] shadow-lg transition-all hover:from-cyan-300 hover:to-cyan-400"
             >
-              Go to Search
+              <span>← Go to Search</span>
             </Link>
           </div>
         )}
@@ -1015,32 +1073,22 @@ function GraphPageContent() {
           />
         )}
 
-        {/* Graph + sidebar */}
+        {/* Graph + Sidebar Two-Column Workspace */}
         {requestedIds.length > 0 && (
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-
-            {/* Graph panel */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+            {/* Main Graph Workspace (8 cols on lg/xl = ~67-70%) */}
             <section
-              className="rounded-[18px] p-4 sm:p-5 shadow-sm"
-              style={{
-                border: "1px solid var(--border-default)",
-                backgroundColor: "var(--bg-surface)",
-              }}
+              className="lg:col-span-8 flex flex-col gap-4 rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-4 sm:p-6 shadow-xl"
               aria-label="Research relationship graph"
             >
-              {/* Controls bar: Zoom, Fit, Edge toggles, Comparison */}
-              <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
+              {/* Toolbar Controls */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e385c]/80 bg-[#081526] p-2.5 shadow-sm">
                 {/* Zoom / layout toolbar */}
-                <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Graph controls">
+                <div className="flex items-center gap-1.5" role="toolbar" aria-label="Graph controls">
                   <button
                     type="button"
                     onClick={() => handleZoomBy(1.25)}
-                    className="rounded-lg px-2.5 py-1 text-sm font-bold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-elevated)",
-                      color: "var(--text-secondary)",
-                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e385c] bg-[#11223b] text-sm font-bold text-[#eaf2ff] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Zoom in"
                     title="Zoom in"
                   >
@@ -1049,26 +1097,17 @@ function GraphPageContent() {
                   <button
                     type="button"
                     onClick={() => handleZoomBy(0.8)}
-                    className="rounded-lg px-2.5 py-1 text-sm font-bold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-elevated)",
-                      color: "var(--text-secondary)",
-                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e385c] bg-[#11223b] text-sm font-bold text-[#eaf2ff] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Zoom out"
                     title="Zoom out"
                   >
                     −
                   </button>
+                  <div className="h-4 w-px bg-[#1e385c] mx-1" />
                   <button
                     type="button"
                     onClick={() => zoomToFit(70, 300)}
-                    className="rounded-lg px-3 py-1 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-elevated)",
-                      color: "var(--text-secondary)",
-                    }}
+                    className="rounded-lg border border-[#1e385c] bg-[#11223b] px-3 h-8 text-xs font-semibold text-[#9cb1ce] transition-colors hover:border-cyan-500/40 hover:text-[#eaf2ff] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Fit graph to view"
                     title="Center and fit all nodes in view"
                   >
@@ -1077,11 +1116,7 @@ function GraphPageContent() {
                   <button
                     type="button"
                     onClick={handleResetLayout}
-                    className="rounded-lg px-3 py-1 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                    style={{
-                      backgroundColor: "var(--cyan-primary)",
-                      color: "var(--cyan-text)",
-                    }}
+                    className="rounded-lg bg-cyan-400/15 border border-cyan-400/40 px-3 h-8 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                     aria-label="Reset graph layout"
                     title="Re-run simulation physics"
                   >
@@ -1089,23 +1124,18 @@ function GraphPageContent() {
                   </button>
                 </div>
 
-                {/* Edge type filters */}
+                {/* Edge Filters */}
                 <div
-                  className="flex flex-wrap items-center gap-2"
+                  className="flex items-center gap-2 flex-wrap"
                   role="group"
                   aria-label="Edge relationship filters"
                 >
                   <label
-                    className="flex cursor-pointer items-center gap-2 rounded-full px-3 py-1 text-xs transition-colors"
-                    style={{
-                      border: showCoAuthorEdges
-                        ? "1px solid rgba(6,182,212,0.4)"
-                        : "1px solid var(--border-subtle)",
-                      backgroundColor: showCoAuthorEdges
-                        ? "var(--cyan-subtle)"
-                        : "var(--bg-elevated)",
-                      color: showCoAuthorEdges ? "var(--text-accent)" : "var(--text-muted)",
-                    }}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      showCoAuthorEdges
+                        ? "border border-cyan-500/40 bg-cyan-500/15 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.15)]"
+                        : "border border-[#1e385c] bg-[#11223b] text-[#5e779a]"
+                    }`}
                   >
                     <input
                       type="checkbox"
@@ -1115,21 +1145,18 @@ function GraphPageContent() {
                       aria-label="Show co-author edges (shared authors between papers)"
                     />
                     <span
-                      className="inline-block h-2 w-4 rounded-sm"
-                      style={{ backgroundColor: EDGE_COLORS["co-author"] }}
+                      className="inline-block h-1.5 w-3.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"
                       aria-hidden="true"
                     />
                     <span>Co-author ({coAuthorEdgeCount})</span>
                   </label>
+
                   <label
-                    className="flex cursor-pointer items-center gap-2 rounded-full px-3 py-1 text-xs transition-colors"
-                    style={{
-                      border: showSameFieldEdges
-                        ? "1px solid var(--border-default)"
-                        : "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-elevated)",
-                      color: showSameFieldEdges ? "var(--text-secondary)" : "var(--text-muted)",
-                    }}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      showSameFieldEdges
+                        ? "border border-[#1e385c] bg-[#11223b] text-[#eaf2ff]"
+                        : "border border-[#1e385c]/60 bg-[#11223b]/50 text-[#5e779a]"
+                    }`}
                   >
                     <input
                       type="checkbox"
@@ -1139,8 +1166,7 @@ function GraphPageContent() {
                       aria-label="Show same-field edges (shared arXiv categories between papers)"
                     />
                     <span
-                      className="inline-block h-px w-4 border-t-2 border-dashed align-middle"
-                      style={{ borderColor: "#64748b" }}
+                      className="inline-block h-0 w-3.5 border-b-2 border-dashed border-[#64748b]"
                       aria-hidden="true"
                     />
                     <span>Same field ({sameFieldEdgeCount})</span>
@@ -1150,21 +1176,10 @@ function GraphPageContent() {
 
               {/* Accessible Paper Selection Bar (for Keyboard & Touch Users) */}
               {graphData && graphData.nodes.length > 0 && (
-                <div
-                  className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5 rounded-xl px-3 py-2 text-xs"
-                  style={{
-                    backgroundColor: "var(--bg-elevated)",
-                    border: "1px solid var(--border-subtle)",
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-[11px] font-bold uppercase tracking-wider"
-                      style={{ color: "var(--text-accent-dim)" }}
-                    >
-                      Keyboard / Touch Node Selection:
-                    </span>
-                  </div>
+                <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[#1e385c]/60 bg-[#081526] px-3.5 py-2 text-xs">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400 shrink-0">
+                    Keyboard / Focus Selector:
+                  </span>
                   <div className="flex flex-1 min-w-[220px] items-center gap-2">
                     <label htmlFor="accessible-node-select" className="sr-only">
                       Select paper in graph
@@ -1175,17 +1190,11 @@ function GraphPageContent() {
                       onChange={(e) => {
                         const id = e.target.value;
                         setSelectedNodeId(id || null);
-                        if (id && window.innerWidth < 1280) {
+                        if (id && window.innerWidth < 1024) {
                           detailsAsideRef.current?.scrollIntoView?.({ behavior: "smooth" });
                         }
                       }}
-                      className="h-8 w-full rounded-lg px-2.5 text-xs transition-all"
-                      style={{
-                        border: "1px solid var(--border-default)",
-                        backgroundColor: "var(--bg-input)",
-                        color: "var(--text-primary)",
-                        outline: "none",
-                      }}
+                      className="h-8 w-full rounded-lg border border-[#1e385c] bg-[#0c1a2e] px-2.5 text-xs text-[#eaf2ff] transition-all focus:border-cyan-400 focus:outline-none"
                     >
                       <option value="">
                         -- Choose a paper ({graphData.nodes.length} papers in graph) --
@@ -1200,32 +1209,19 @@ function GraphPageContent() {
                 </div>
               )}
 
-              {/* Comparison Matrix Bar */}
+              {/* Compare Matrix Shortcut Bar */}
               {graphData && graphData.nodes.length >= 2 && (
-                <div
-                  className="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-2.5"
-                  style={{
-                    backgroundColor: "var(--bg-page)",
-                    border: "1px solid var(--border-subtle)",
-                  }}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-xs tracking-wider uppercase" style={{ color: "var(--text-secondary)" }}>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e385c]/60 bg-[#081526] px-3.5 py-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#9cb1ce]">
                       Compare Matrix:
                     </span>
                     <span
-                      className="rounded-full px-2 py-0.5 text-xs font-bold"
-                      style={{
-                        backgroundColor:
-                          selectedForCompare.length >= 2
-                            ? "rgba(6,182,212,0.18)"
-                            : "var(--bg-elevated)",
-                        color:
-                          selectedForCompare.length >= 2
-                            ? "var(--text-accent)"
-                            : "var(--text-muted)",
-                        border: "1px solid var(--border-subtle)",
-                      }}
+                      className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold border ${
+                        selectedForCompare.length >= 2
+                          ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-300"
+                          : "border-[#1e385c] bg-[#11223b] text-[#5e779a]"
+                      }`}
                     >
                       {selectedForCompare.length} / 4 selected
                     </span>
@@ -1233,8 +1229,7 @@ function GraphPageContent() {
                       <button
                         type="button"
                         onClick={() => setSelectedForCompare([])}
-                        className="text-xs transition-colors hover:underline"
-                        style={{ color: "var(--text-muted)" }}
+                        className="text-xs text-[#5e779a] hover:text-[#eaf2ff] hover:underline"
                       >
                         Clear
                       </button>
@@ -1247,11 +1242,7 @@ function GraphPageContent() {
                         type="button"
                         onClick={() => generateComparison()}
                         disabled={isComparing}
-                        className="rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                        style={{
-                          backgroundColor: "var(--cyan-primary)",
-                          color: "var(--cyan-text)",
-                        }}
+                        className="rounded-lg bg-cyan-400 px-3.5 py-1.5 text-xs font-bold text-[#04121e] shadow-md transition-all hover:bg-cyan-300 disabled:opacity-50"
                       >
                         {isComparing ? "Comparing…" : `Compare Selected (${selectedForCompare.length})`}
                       </button>
@@ -1264,12 +1255,7 @@ function GraphPageContent() {
                           generateComparison(autoIds);
                         }}
                         disabled={isComparing}
-                        className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
-                        style={{
-                          backgroundColor: "var(--bg-elevated)",
-                          border: "1px solid var(--border-default)",
-                          color: "var(--text-secondary)",
-                        }}
+                        className="rounded-lg border border-[#1e385c] bg-[#11223b] px-3 py-1.5 text-xs font-semibold text-[#9cb1ce] transition-colors hover:border-cyan-500/40 hover:text-[#eaf2ff]"
                       >
                         Compare Top {Math.min(3, graphData.nodes.length)}
                       </button>
@@ -1278,100 +1264,81 @@ function GraphPageContent() {
                 </div>
               )}
 
-              {/* Loading state */}
+              {/* Loading State */}
               {isLoadingGraph && (
                 <div
-                  className="flex h-[480px] items-center justify-center rounded-xl"
-                  style={{
-                    border: "1px solid var(--border-subtle)",
-                    backgroundColor: "var(--bg-page)",
-                  }}
+                  className="flex h-[520px] items-center justify-center rounded-2xl border border-[#1e385c] bg-[#081526]"
                   role="status"
                   aria-live="polite"
                 >
-                  <div className="text-center">
-                    <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-                    <p className="mt-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  <div className="text-center p-6">
+                    <span className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                    <p className="mt-3 text-sm font-semibold text-[#eaf2ff]">
                       Building relationship graph from arXiv metadata…
                     </p>
-                    <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                    <p className="mt-1 text-xs text-[#5e779a]">
                       Detecting co-authorship collaboration and category overlaps.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Error state */}
+              {/* Error State */}
               {!isLoadingGraph && graphError && (
                 <div
-                  className="flex h-[480px] flex-col items-center justify-center rounded-xl px-8 text-center"
-                  style={{
-                    border: "1px solid var(--error-border)",
-                    backgroundColor: "var(--error-bg)",
-                  }}
+                  className="flex h-[520px] flex-col items-center justify-center rounded-2xl border border-rose-500/40 bg-rose-500/10 p-8 text-center"
                   role="alert"
                 >
-                  <p className="font-semibold text-sm" style={{ color: "#fda4af" }}>{graphError}</p>
-                  <p className="mt-2 text-xs" style={{ color: "#fecaca" }}>
+                  <p className="text-sm font-semibold text-rose-300">{graphError}</p>
+                  <p className="mt-2 text-xs text-rose-200">
                     Try reloading from search results.
                   </p>
                 </div>
               )}
 
-              {/* Empty graph */}
+              {/* Empty Graph Nodes */}
               {!isLoadingGraph && !graphError && graphData && graphData.nodes.length === 0 && (
                 <div
-                  className="flex h-[480px] items-center justify-center rounded-xl px-8 text-center"
-                  style={{
-                    border: "1px solid var(--border-subtle)",
-                    backgroundColor: "var(--bg-page)",
-                  }}
+                  className="flex h-[520px] items-center justify-center rounded-2xl border border-[#1e385c] bg-[#081526] p-8 text-center"
                   role="status"
                 >
                   <div>
-                    <p className="font-semibold" style={{ color: "var(--text-primary)" }}>No nodes returned</p>
-                    <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                    <p className="font-semibold text-base text-[#eaf2ff]">No nodes returned</p>
+                    <p className="mt-1 text-xs text-[#9cb1ce]">
                       The selected paper IDs could not be fetched from arXiv.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* SVG Canvas */}
+              {/* SVG Canvas Centerpiece */}
               {!isLoadingGraph && !graphError && graphData && graphData.nodes.length > 0 && (
-                <>
-                  <div className="relative">
+                <div className="relative">
+                  <div className="relative overflow-hidden rounded-2xl border border-[#1e385c] bg-[#030b15] shadow-2xl">
                     <svg
                       ref={svgRef}
                       viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-                      className="w-full rounded-xl transition-all"
+                      className="w-full cursor-grab active:cursor-grabbing transition-all select-none"
                       style={{
-                        height: "clamp(400px, 60vh, 680px)",
-                        border: "1px solid var(--border-subtle)",
-                        backgroundColor: "#030b15",
+                        height: "clamp(460px, 65vh, 680px)",
                       }}
                       role="img"
                       aria-label={`Research relationship graph with ${graphData.nodes.length} papers`}
                     />
-                    <span
-                      className="pointer-events-none absolute bottom-3 right-3 rounded px-2 py-0.5 text-[10px]"
-                      style={{
-                        backgroundColor: "rgba(5,13,26,0.75)",
-                        border: "1px solid var(--border-subtle)",
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      Drag to pan · Scroll to zoom
-                    </span>
+
+                    {/* Canvas Instruction Pill */}
+                    <div className="pointer-events-none absolute bottom-3 right-3 hidden sm:flex items-center gap-1.5 rounded-lg border border-[#1e385c]/80 bg-[#0c1a2e]/90 px-2.5 py-1 text-[11px] font-mono text-[#5e779a] backdrop-blur-md">
+                      <span>Click node to inspect • Drag canvas to pan</span>
+                    </div>
                   </div>
 
-                  {/* Category color legend with node counts */}
+                  {/* Category Color Legend */}
                   {categoryColorMap.size > 0 && (
                     <div
                       className="mt-3.5 flex flex-wrap items-center gap-2"
                       aria-label="Node color legend by category"
                     >
-                      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                      <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#5e779a]">
                         Categories:
                       </span>
                       {Array.from(categoryColorMap.entries()).map(([cat, color]) => {
@@ -1379,22 +1346,15 @@ function GraphPageContent() {
                         return (
                           <div
                             key={cat}
-                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
-                            style={{
-                              backgroundColor: "var(--bg-page)",
-                              border: "1px solid var(--border-subtle)",
-                            }}
+                            className="flex items-center gap-1.5 rounded-full border border-[#1e385c] bg-[#081526] px-2.5 py-1 text-xs"
                           >
                             <span
                               className="inline-block h-2.5 w-2.5 rounded-full"
                               style={{ backgroundColor: color }}
                               aria-hidden="true"
                             />
-                            <span style={{ color: "var(--text-secondary)" }}>{cat}</span>
-                            <span
-                              className="text-[10px] rounded-full px-1.5"
-                              style={{ backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)" }}
-                            >
+                            <span className="font-mono text-[#9cb1ce]">{cat}</span>
+                            <span className="rounded-full bg-[#11223b] px-1.5 text-[10px] font-mono text-[#5e779a]">
                               {count}
                             </span>
                           </div>
@@ -1403,65 +1363,56 @@ function GraphPageContent() {
                     </div>
                   )}
 
-                  {/* Edge relationship legend */}
+                  {/* Edge Relationship Legend Bar */}
                   <div
-                    className="mt-2.5 rounded-lg p-3 text-xs flex flex-wrap items-center justify-between gap-3"
-                    style={{
-                      backgroundColor: "var(--bg-page)",
-                      border: "1px solid var(--border-subtle)",
-                      color: "var(--text-muted)",
-                    }}
+                    className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e385c] bg-[#081526] p-3 text-xs text-[#9cb1ce]"
                     aria-label="Edge type legend"
                   >
                     <div className="flex flex-wrap items-center gap-4">
-                      <span>
+                      <span className="flex items-center gap-1.5">
                         <span
-                          className="mr-1.5 inline-block h-2 w-5 rounded-sm align-middle"
-                          style={{ backgroundColor: EDGE_COLORS["co-author"] }}
+                          className="inline-block h-2 w-5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"
                           aria-hidden="true"
                         />
-                        <strong style={{ color: "var(--text-primary)" }}>Solid cyan:</strong> Shared author(s)
+                        <span><strong className="text-[#eaf2ff]">Solid cyan:</strong> Shared author(s)</span>
                       </span>
-                      <span>
+                      <span className="flex items-center gap-1.5">
                         <span
-                          className="mr-1.5 inline-block h-px w-5 border-t-2 border-dashed align-middle"
-                          style={{ borderColor: "#64748b" }}
+                          className="inline-block h-0 w-5 border-b-2 border-dashed border-[#64748b]"
                           aria-hidden="true"
                         />
-                        <strong style={{ color: "var(--text-primary)" }}>Dashed grey:</strong> Shared arXiv field
+                        <span><strong className="text-[#eaf2ff]">Dashed grey:</strong> Shared arXiv field</span>
                       </span>
                     </div>
-                    <span className="text-[11px] font-medium" style={{ color: "#fbbf24" }}>
+                    <span className="text-[11px] font-medium text-amber-400">
                       ⚠ Relationships show collaboration &amp; field similarity — NOT citations.
                     </span>
                   </div>
-                </>
+                </div>
               )}
             </section>
 
-            {/* Details sidebar */}
+            {/* Details Sidebar (4 cols on lg/xl = ~30-33%) */}
             <aside
               ref={detailsAsideRef}
-              className="rounded-[18px] p-5 shadow-sm"
-              style={{
-                border: "1px solid var(--border-default)",
-                backgroundColor: "var(--bg-surface)",
-              }}
+              className="lg:col-span-4 rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-5 sm:p-6 shadow-xl flex flex-col gap-4 relative overflow-hidden"
               aria-label="Selected paper details"
             >
-              <div className="mb-3.5 flex items-center justify-between">
-                <h2
-                  className="text-base font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Paper Details
-                </h2>
+              {/* Gradient Top Accent */}
+              <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-[#38bdf8] to-emerald-400" />
+
+              <div className="flex items-center justify-between border-b border-[#1e385c]/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-cyan-400 text-sm font-bold">📄</span>
+                  <h2 className="text-base font-bold text-[#eaf2ff]">
+                    Paper Details
+                  </h2>
+                </div>
                 {selectedNode && (
                   <button
                     type="button"
                     onClick={() => setSelectedNodeId(null)}
-                    className="text-xs transition-colors hover:underline"
-                    style={{ color: "var(--text-muted)" }}
+                    className="rounded-md border border-[#1e385c] bg-[#11223b] px-2 py-0.5 text-xs text-[#9cb1ce] hover:text-[#eaf2ff]"
                     aria-label="Deselect paper"
                   >
                     ✕ Close
@@ -1469,33 +1420,20 @@ function GraphPageContent() {
                 )}
               </div>
 
+              {/* State when NO paper is selected */}
               {!selectedNode && (
-                <div className="space-y-3">
-                  <div
-                    className="rounded-xl p-4 text-xs leading-relaxed"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-page)",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4 text-xs leading-relaxed text-[#9cb1ce]">
                     Click any node in the graph, select from the dropdown above, or choose a paper from the list below to inspect its abstract, connections, and AI summary.
                   </div>
 
                   {graphData && graphData.nodes.length > 0 && (
-                    <div
-                      className="rounded-xl p-3"
-                      style={{
-                        border: "1px solid var(--border-subtle)",
-                        backgroundColor: "var(--bg-page)",
-                      }}
-                    >
-                      <p
-                        className="mb-2 text-xs font-bold uppercase tracking-wider"
-                        style={{ color: "var(--text-accent-dim)" }}
-                      >
-                        Papers in Graph ({graphData.nodes.length})
-                      </p>
+                    <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                          Papers in Graph ({graphData.nodes.length})
+                        </span>
+                      </div>
                       <ul className="space-y-1.5 overflow-y-auto max-h-[380px] pr-1">
                         {graphData.nodes.map((node) => (
                           <li key={node.id}>
@@ -1503,18 +1441,18 @@ function GraphPageContent() {
                               type="button"
                               onClick={() => {
                                 setSelectedNodeId(node.id);
-                                if (window.innerWidth < 1280) {
+                                if (window.innerWidth < 1024) {
                                   detailsAsideRef.current?.scrollIntoView?.({ behavior: "smooth" });
                                 }
                               }}
-                              className="w-full text-left rounded-lg p-2 text-xs transition-colors hover:bg-[var(--bg-elevated)] flex flex-col gap-1 border border-transparent hover:border-[var(--border-subtle)]"
+                              className="w-full text-left rounded-lg p-2.5 text-xs transition-all hover:bg-[#11223b] flex flex-col gap-1 border border-transparent hover:border-[#1e385c]"
                             >
-                              <span className="font-semibold line-clamp-1" style={{ color: "var(--text-primary)" }}>
+                              <span className="font-semibold text-[#eaf2ff] line-clamp-1">
                                 {node.title}
                               </span>
-                              <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              <div className="flex items-center justify-between font-mono text-[10px] text-[#5e779a]">
                                 <span>arXiv:{node.id}</span>
-                                <span>{primaryCategory(node)}</span>
+                                <span className="text-cyan-400">{primaryCategory(node)}</span>
                               </div>
                             </button>
                           </li>
@@ -1525,71 +1463,41 @@ function GraphPageContent() {
                 </div>
               )}
 
+              {/* State when a paper IS selected */}
               {selectedNode && (
-                <div className="space-y-3.5">
-                  {/* arXiv ID + Category Badge */}
-                  <div
-                    className="rounded-xl p-3 flex items-center justify-between"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-page)",
-                    }}
-                  >
-                    <div>
-                      <p
-                        className="text-[10px] font-bold uppercase tracking-widest"
-                        style={{ color: "var(--text-accent-dim)" }}
-                      >
-                        arXiv Identifier
-                      </p>
-                      <p className="font-mono text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {selectedNode.id}
-                      </p>
+                <div className="space-y-4">
+                  {/* arXiv ID + Category Badges Row */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 font-mono text-xs">
+                      <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-semibold text-cyan-400">
+                        arXiv:{selectedNode.id}
+                      </span>
+                      <span className="rounded-md border border-[#1e385c] bg-[#11223b] px-2 py-0.5 text-[#9cb1ce]">
+                        [{primaryCategory(selectedNode)}]
+                      </span>
                     </div>
-                    <span
-                      className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                      style={{
-                        backgroundColor: "var(--bg-elevated)",
-                        border: "1px solid var(--border-subtle)",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      {primaryCategory(selectedNode)}
+
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-emerald-400">
+                      {Math.round(selectedNode.relevance_score * 100)}% Sim
                     </span>
                   </div>
 
-                  {/* Title + Metadata */}
-                  <div
-                    className="rounded-xl p-3.5"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-page)",
-                    }}
-                  >
-                    <h3
-                      className="text-sm font-semibold leading-snug"
-                      style={{ color: "var(--text-primary)" }}
-                    >
+                  {/* Title & Metadata Card */}
+                  <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
+                    <h3 className="text-sm sm:text-base font-bold leading-snug text-[#eaf2ff]">
                       {selectedNode.title}
                     </h3>
-                    <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                      {selectedNode.authors.slice(0, 4).join(", ") || "Unknown authors"}
-                      {selectedNode.authors.length > 4 &&
-                        ` +${selectedNode.authors.length - 4} more`}
+                    <p className="mt-2 text-xs text-[#9cb1ce] line-clamp-2">
+                      {selectedNode.authors.join(", ") || "Unknown authors"}
                     </p>
-                    <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                    <p className="mt-1 text-[11px] text-[#5e779a]">
                       Published: {formatDate(selectedNode.published)}
                     </p>
-                    <div className="mt-2.5 flex flex-wrap gap-1.5">
-                      {selectedNode.categories.slice(0, 6).map((category) => (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {selectedNode.categories.map((category) => (
                         <span
                           key={`${selectedNode.id}-${category}`}
-                          className="rounded-full px-2 py-0.5 text-[11px]"
-                          style={{
-                            border: "1px solid var(--border-subtle)",
-                            backgroundColor: "var(--bg-elevated)",
-                            color: "var(--text-secondary)",
-                          }}
+                          className="rounded border border-[#1e385c] bg-[#11223b] px-1.5 py-0.5 font-mono text-[10px] text-[#9cb1ce]"
                         >
                           {category}
                         </span>
@@ -1597,54 +1505,111 @@ function GraphPageContent() {
                     </div>
                   </div>
 
+                  {/* Primary Action Buttons Bar */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={
+                        selectedDetails?.entry_url ||
+                        `https://arxiv.org/abs/${selectedNode.id}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#1e385c] bg-[#11223b] py-2 px-3 text-xs font-semibold text-[#eaf2ff] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      aria-label={`Open arXiv abstract page for: ${selectedNode.title}`}
+                    >
+                      <span>arXiv ↗</span>
+                    </a>
+
+                    <a
+                      href={
+                        selectedDetails?.pdf_url ||
+                        `https://arxiv.org/pdf/${selectedNode.id}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-400/15 border border-cyan-400/40 py-2 px-3 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      aria-label={`Open PDF for: ${selectedNode.title}`}
+                    >
+                      <span>View PDF ↗</span>
+                    </a>
+                  </div>
+
+                  {/* Compare and Summarize Actions */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleCompare(selectedNode.id)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
+                        selectedForCompare.includes(selectedNode.id)
+                          ? "border border-cyan-400/50 bg-cyan-500/20 text-cyan-300"
+                          : "border border-[#1e385c] bg-[#081526] text-[#9cb1ce] hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+                      }`}
+                      aria-pressed={selectedForCompare.includes(selectedNode.id)}
+                      aria-label={
+                        selectedForCompare.includes(selectedNode.id)
+                          ? `Remove ${selectedNode.title} from comparison`
+                          : `Add ${selectedNode.title} to comparison`
+                      }
+                    >
+                      <span>{selectedForCompare.includes(selectedNode.id) ? "✓ In Compare" : "+ Compare"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={summarizeSelectedNode}
+                      disabled={summaryLoading}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 py-2 px-3 text-xs font-bold text-[#04121e] shadow-md transition-all hover:from-cyan-300 hover:to-cyan-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                      aria-label={
+                        summaryLoading
+                          ? "Generating summary…"
+                          : `Summarize: ${selectedNode.title}`
+                      }
+                    >
+                      {summaryLoading ? (
+                        <>
+                          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#04121e] border-t-transparent" />
+                          <span>Summarizing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>✦</span>
+                          <span>Summarize</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   {/* Connected Papers in Graph (Non-citation relationships) */}
                   {connectedPapers.length > 0 && (
-                    <div
-                      className="rounded-xl p-3.5"
-                      style={{
-                        border: "1px solid var(--border-subtle)",
-                        backgroundColor: "var(--bg-page)",
-                      }}
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <p
-                          className="text-[11px] font-bold uppercase tracking-wider"
-                          style={{ color: "var(--text-accent-dim)" }}
-                        >
+                    <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
                           Connected in Graph ({connectedPapers.length})
-                        </p>
-                        <span className="text-[10px] italic" style={{ color: "var(--text-muted)" }}>
+                        </span>
+                        <span className="text-[10px] text-[#5e779a] italic">
                           Non-citation
                         </span>
                       </div>
-                      <ul className="space-y-1.5 text-xs max-h-44 overflow-y-auto pr-1" aria-label="Connected papers">
+                      <ul className="space-y-2 text-xs max-h-48 overflow-y-auto pr-1" aria-label="Connected papers">
                         {connectedPapers.map(({ paper, edgeType, weight }) => (
                           <li
                             key={`${paper.id}-${edgeType}`}
-                            className="flex items-center justify-between gap-2 rounded p-1.5 transition-colors hover:bg-[var(--bg-elevated)]"
+                            className="flex items-center justify-between gap-2 rounded-lg border border-[#1e385c]/60 bg-[#0c1a2e] p-2 transition-colors hover:border-cyan-500/30"
                           >
                             <button
                               type="button"
                               onClick={() => setSelectedNodeId(paper.id)}
-                              className="flex-1 text-left font-medium line-clamp-1 hover:underline transition-colors"
-                              style={{ color: "var(--text-primary)" }}
+                              className="flex-1 text-left font-medium text-[#eaf2ff] line-clamp-1 hover:text-cyan-300 hover:underline transition-colors"
                               title={`Inspect ${paper.title}`}
                             >
                               {paper.title}
                             </button>
                             <span
-                              className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold"
-                              style={{
-                                backgroundColor:
-                                  edgeType === "co-author"
-                                    ? "var(--cyan-subtle)"
-                                    : "var(--bg-elevated)",
-                                color:
-                                  edgeType === "co-author"
-                                    ? "var(--text-accent)"
-                                    : "var(--text-secondary)",
-                                border: "1px solid var(--border-subtle)",
-                              }}
+                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                                edgeType === "co-author"
+                                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                  : "bg-[#11223b] text-[#9cb1ce] border border-[#1e385c]"
+                              }`}
                             >
                               {edgeType === "co-author"
                                 ? `${weight} author(s)`
@@ -1656,152 +1621,37 @@ function GraphPageContent() {
                     </div>
                   )}
 
-                  {/* Abstract */}
-                  <div
-                    className="rounded-xl p-3.5"
-                    style={{
-                      border: "1px solid var(--border-subtle)",
-                      backgroundColor: "var(--bg-page)",
-                    }}
-                  >
+                  {/* Abstract Section */}
+                  <div className="rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4">
                     {detailsLoading && (
-                      <div className="flex items-center gap-2 py-2">
+                      <div className="flex items-center gap-2.5 py-2 text-xs text-cyan-400">
                         <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                          aria-live="polite"
-                        >
-                          Loading abstract…
-                        </p>
+                        <p aria-live="polite">Loading abstract…</p>
                       </div>
                     )}
+
                     {!detailsLoading && detailsError && (
-                      <p className="text-xs" style={{ color: "#fda4af" }} role="alert">
+                      <p className="text-xs text-rose-300" role="alert">
                         {detailsError}
                       </p>
                     )}
+
                     {!detailsLoading && !detailsError && (
                       <>
-                        <p
-                          className="mb-2 text-[11px] font-bold uppercase tracking-widest"
-                          style={{ color: "var(--text-accent-dim)" }}
-                        >
+                        <span className="mb-2 block font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
                           Abstract
-                        </p>
-                        <p
-                          className="text-xs leading-relaxed max-h-48 overflow-y-auto pr-1"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
+                        </span>
+                        <p className="text-xs text-[#9cb1ce] leading-relaxed max-h-48 overflow-y-auto pr-1">
                           {selectedDetails?.abstract ?? "Abstract unavailable."}
                         </p>
                       </>
                     )}
                   </div>
 
-                  {/* Actions Bar */}
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={summarizeSelectedNode}
-                      disabled={summaryLoading}
-                      className="rounded-lg px-3.5 py-2 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-                      style={{
-                        backgroundColor: "var(--cyan-primary)",
-                        color: "var(--cyan-text)",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!summaryLoading)
-                          e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
-                      }}
-                      aria-label={
-                        summaryLoading
-                          ? "Generating summary…"
-                          : `Summarize: ${selectedNode.title}`
-                      }
-                    >
-                      {summaryLoading ? "Summarizing…" : "Summarize"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => toggleCompare(selectedNode.id)}
-                      className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                      style={
-                        selectedForCompare.includes(selectedNode.id)
-                          ? {
-                              backgroundColor: "rgba(6,182,212,0.18)",
-                              border: "1px solid rgba(6,182,212,0.45)",
-                              color: "var(--text-accent)",
-                            }
-                          : {
-                              border: "1px solid var(--border-default)",
-                              backgroundColor: "var(--bg-elevated)",
-                              color: "var(--text-secondary)",
-                            }
-                      }
-                      aria-pressed={selectedForCompare.includes(selectedNode.id)}
-                      aria-label={
-                        selectedForCompare.includes(selectedNode.id)
-                          ? `Remove ${selectedNode.title} from comparison`
-                          : `Add ${selectedNode.title} to comparison`
-                      }
-                    >
-                      {selectedForCompare.includes(selectedNode.id)
-                        ? "✓ In Compare"
-                        : "+ Compare"}
-                    </button>
-
-                    <a
-                      href={
-                        selectedDetails?.entry_url ||
-                        (selectedNode?.id
-                          ? `https://arxiv.org/abs/${selectedNode.id}`
-                          : "")
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                      style={{
-                        border: "1px solid var(--border-default)",
-                        backgroundColor: "var(--bg-elevated)",
-                        color: "var(--text-secondary)",
-                      }}
-                      aria-label={`Open arXiv abstract page for: ${selectedNode.title}`}
-                    >
-                      arXiv ↗
-                    </a>
-
-                    {selectedDetails?.pdf_url && (
-                      <a
-                        href={selectedDetails.pdf_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                        style={{
-                          border: "1px solid var(--border-default)",
-                          backgroundColor: "var(--bg-elevated)",
-                          color: "var(--text-secondary)",
-                        }}
-                        aria-label={`Open PDF for: ${selectedNode.title}`}
-                      >
-                        PDF ↗
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Summary error with Retry */}
+                  {/* Summary error with retry */}
                   {summaryError && (
                     <div
-                      className="flex flex-col items-start gap-2 rounded-xl p-3 text-xs"
-                      style={{
-                        border: "1px solid var(--error-border)",
-                        backgroundColor: "var(--error-bg)",
-                        color: "#fda4af",
-                      }}
+                      className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300 flex flex-col gap-2"
                       role="alert"
                     >
                       <p>{summaryError}</p>
@@ -1809,12 +1659,7 @@ function GraphPageContent() {
                         type="button"
                         onClick={summarizeSelectedNode}
                         disabled={summaryLoading}
-                        className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{
-                          backgroundColor: "rgba(239,68,68,0.15)",
-                          border: "1px solid rgba(239,68,68,0.35)",
-                          color: "#fca5a5",
-                        }}
+                        className="rounded-lg bg-rose-700 hover:bg-rose-600 px-3 py-1 text-xs font-bold text-white self-start transition-colors"
                         aria-label={`Retry summary for ${selectedNode?.title || "selected paper"}`}
                       >
                         Retry
@@ -1822,38 +1667,25 @@ function GraphPageContent() {
                     </div>
                   )}
 
-                  {/* Summary text */}
+                  {/* Generated AI Summary */}
                   {summaryText && (
                     <div
-                      className="rounded-xl p-3.5"
-                      style={{
-                        border: "1px solid rgba(6,182,212,0.25)",
-                        backgroundColor: "var(--bg-page)",
-                      }}
+                      className="rounded-xl border border-cyan-500/30 bg-[#081526] p-4 space-y-2"
                       role="region"
                       aria-label="AI-generated summary"
                     >
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <p
-                          className="text-[11px] font-bold uppercase tracking-widest"
-                          style={{ color: "var(--text-accent-dim)" }}
-                        >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
                           AI Summary
-                        </p>
-                        <span
-                          className="rounded px-1.5 py-0.2 text-[10px]"
-                          style={{
-                            backgroundColor: "var(--cyan-subtle)",
-                            color: "var(--text-accent)",
-                          }}
-                        >
+                        </span>
+                        <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-cyan-400">
                           Groq Llama 3.1 8B
                         </span>
                       </div>
-                      <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                      <p className="text-xs text-[#eaf2ff] leading-relaxed">
                         {summaryText}
                       </p>
-                      <p className="mt-2 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                      <p className="text-[10px] text-[#5e779a]">
                         ⚠ Based on author abstract only — not full paper text.
                       </p>
                     </div>
@@ -1867,30 +1699,24 @@ function GraphPageContent() {
         {/* Node Hover Tooltip */}
         {tooltip && (
           <div
-            className="pointer-events-none fixed z-50 max-w-72 rounded-xl p-3 text-xs shadow-2xl"
+            className="pointer-events-none fixed z-50 max-w-72 rounded-xl border border-[#1e385c] bg-[#0c1a2e]/98 p-3.5 text-xs text-[#eaf2ff] shadow-2xl backdrop-blur-md"
             style={{
               left: Math.min(tooltip.x + 16, window.innerWidth - 300),
               top: tooltip.y + 16,
-              border: "1px solid var(--border-default)",
-              backgroundColor: "rgba(11,22,40,0.97)",
-              color: "var(--text-primary)",
             }}
             role="tooltip"
           >
-            <p
-              className="mb-1 line-clamp-2 text-sm font-semibold leading-snug"
-              style={{ color: "var(--text-accent)" }}
-            >
+            <p className="mb-1 line-clamp-2 text-xs font-bold text-cyan-400 leading-snug">
               {tooltip.node.title}
             </p>
-            <p style={{ color: "var(--text-secondary)" }}>
+            <p className="text-[#9cb1ce] text-[11px]">
               {tooltip.node.authors.slice(0, 3).join(", ") || "Unknown authors"}
             </p>
-            <p className="mt-1" style={{ color: "var(--text-muted)" }}>
+            <p className="mt-1 text-[10px] text-[#5e779a]">
               {formatDate(tooltip.node.published)}
             </p>
             {tooltip.node.categories.length > 0 && (
-              <p className="mt-1" style={{ color: "var(--text-muted)" }}>
+              <p className="mt-1 font-mono text-[10px] text-cyan-300">
                 {tooltip.node.categories.slice(0, 3).join(", ")}
               </p>
             )}
@@ -1900,13 +1726,10 @@ function GraphPageContent() {
         {/* Edge Hover Tooltip */}
         {edgeTooltip && (
           <div
-            className="pointer-events-none fixed z-50 max-w-80 rounded-xl p-3 text-xs shadow-2xl"
+            className="pointer-events-none fixed z-50 max-w-80 rounded-xl border border-[#1e385c] bg-[#0c1a2e]/98 p-3.5 text-xs text-[#eaf2ff] shadow-2xl backdrop-blur-md"
             style={{
               left: Math.min(edgeTooltip.x + 16, window.innerWidth - 330),
               top: edgeTooltip.y + 16,
-              border: "1px solid var(--border-default)",
-              backgroundColor: "rgba(11,22,40,0.98)",
-              color: "var(--text-primary)",
             }}
             role="tooltip"
           >
@@ -1920,33 +1743,33 @@ function GraphPageContent() {
                       : "#64748b",
                 }}
               />
-              <span className="font-bold text-xs" style={{ color: "var(--text-accent)" }}>
+              <span className="font-bold text-xs text-cyan-400">
                 {edgeTooltip.edge.type === "co-author"
                   ? "Shared Authors Connection"
                   : "Shared Research Field Connection"}
               </span>
             </div>
-            <p className="line-clamp-1 font-semibold text-xs" style={{ color: "var(--text-primary)" }}>
+            <p className="line-clamp-1 font-semibold text-xs text-[#eaf2ff]">
               {edgeTooltip.sourceNode.title}
             </p>
-            <p className="text-[10px] my-0.5" style={{ color: "var(--text-muted)" }}>
+            <p className="text-[10px] my-0.5 text-[#5e779a]">
               ↔ linked with ↔
             </p>
-            <p className="line-clamp-1 font-semibold text-xs mb-2" style={{ color: "var(--text-primary)" }}>
+            <p className="line-clamp-1 font-semibold text-xs mb-2 text-[#eaf2ff]">
               {edgeTooltip.targetNode.title}
             </p>
-            <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-[11px] text-[#9cb1ce]">
               {edgeTooltip.edge.type === "co-author"
                 ? `These papers share ${edgeTooltip.edge.weight} author(s) in common.`
                 : `These papers share ${edgeTooltip.edge.weight} arXiv primary category/categories.`}
             </p>
-            <p className="mt-1.5 text-[10px] font-medium" style={{ color: "#fbbf24" }}>
+            <p className="mt-1.5 text-[10px] font-medium text-amber-400">
               ⚠ Collaboration / field connection — NOT a citation.
             </p>
           </div>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -1954,29 +1777,16 @@ function GraphPageContent() {
 
 function GraphPageFallback() {
   return (
-    <main
-      className="min-h-screen"
-      style={{ backgroundColor: "var(--bg-page)", color: "var(--text-primary)" }}
-    >
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div
-          className="flex h-[500px] items-center justify-center rounded-[18px]"
-          style={{
-            border: "1px solid var(--border-subtle)",
-            backgroundColor: "var(--bg-surface)",
-          }}
-          role="status"
-          aria-live="polite"
-        >
-          <p
-            className="animate-pulse text-sm"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Loading graph…
+    <div className="min-h-screen bg-[#051424] text-[#eaf2ff]">
+      <div className="page-container py-12 flex items-center justify-center">
+        <div className="flex h-72 w-full max-w-md flex-col items-center justify-center rounded-2xl border border-[#1e385c] bg-[#0c1a2e]" role="status" aria-live="polite">
+          <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+          <p className="mt-3 text-sm font-semibold text-[#9cb1ce]">
+            Loading research graph…
           </p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

@@ -2,42 +2,56 @@
 
 /* ============================================================
    Design Tokens — Scholytics
-   Dark navy/cyan identity. All colors flow from these variables.
+   Sophisticated dark navy & cyan research workspace.
    ============================================================ */
 :root {
-  /* Backgrounds */
-  --bg-page: #050d1a;
-  --bg-surface: #0b1628;
-  --bg-elevated: #0f1e35;
-  --bg-input: #091424;
-  --bg-hover: #132240;
+  /* Surfaces & Backgrounds */
+  --bg-page: #051424;
+  --bg-surface: #0c1a2e;
+  --bg-surface-raised: #11223b;
+  --bg-surface-hover: #182e4e;
+  --bg-elevated: #11223b;
+  --bg-input: #081526;
+  --bg-hover: #182e4e;
 
   /* Borders */
-  --border-subtle: #1a2e4a;
-  --border-default: #1e3a5f;
-  --border-accent: #0891b2;
-  --border-focus: #06b6d4;
+  --border-subtle: #162a45;
+  --border-default: #1e385c;
+  --border-accent: #0284c7;
+  --border-focus: #22d3ee;
 
-  /* Text */
-  --text-primary: #e8f0fe;
-  --text-secondary: #94a3b8;
-  --text-muted: #4b6a8a;
+  /* Text & Foreground */
+  --text-primary: #eaf2ff;
+  --text-secondary: #9cb1ce;
+  --text-muted: #5e779a;
   --text-accent: #22d3ee;
-  --text-accent-dim: #0891b2;
+  --text-accent-dim: #38bdf8;
 
-  /* Brand cyan */
-  --cyan-primary: #06b6d4;
-  --cyan-hover: #22d3ee;
-  --cyan-dim: #0891b2;
-  --cyan-subtle: rgba(6, 182, 212, 0.12);
-  --cyan-text: #0a0f18;
+  /* Brand Accents */
+  --cyan-primary: #22d3ee;
+  --cyan-hover: #38bdf8;
+  --cyan-dim: #0284c7;
+  --cyan-subtle: rgba(34, 211, 238, 0.12);
+  --cyan-text: #04121e;
 
-  /* Status */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #f43f5e;
-  --error-bg: rgba(244, 63, 94, 0.08);
-  --error-border: rgba(244, 63, 94, 0.35);
+  /* Secondary & Accents */
+  --secondary: #4cd7f6;
+  --secondary-subtle: rgba(76, 215, 246, 0.12);
+  --tertiary: #34d399;
+  --tertiary-subtle: rgba(52, 211, 153, 0.12);
+
+  /* Status Colors */
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.1);
+  --success-border: rgba(52, 211, 153, 0.35);
+
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --warning-border: rgba(251, 191, 36, 0.35);
+
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.08);
+  --error-border: rgba(248, 113, 113, 0.35);
 
   /* Radii */
   --radius-sm: 6px;
@@ -48,17 +62,18 @@
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-cyan: 0 0 0 3px rgba(6, 182, 212, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.65);
+  --shadow-cyan: 0 0 0 3px rgba(34, 211, 238, 0.25);
+  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.15);
 
   /* Typography */
-  --font-sans: var(--font-geist-sans), "Inter", system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), "Roboto Mono", monospace;
+  --font-sans: var(--font-geist-sans), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), "JetBrains Mono", "Roboto Mono", monospace;
 }
 
 /* ============================================================
-   Base reset
+   Base reset & Layout
    ============================================================ */
 *,
 *::before,
@@ -80,8 +95,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Shared responsive container */
+.page-container {
+  width: min(1520px, calc(100% - 32px));
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .page-container {
+    width: min(1520px, calc(100% - 48px));
+  }
+}
+
 /* ============================================================
-   Focus — visible ring, not just outline
+   Focus styles — Visible keyboard rings
    ============================================================ */
 :focus-visible {
   outline: 2px solid var(--border-focus);
@@ -92,12 +119,12 @@ body {
    Selection
    ============================================================ */
 ::selection {
-  background: rgba(6, 182, 212, 0.2);
-  color: var(--text-primary);
+  background: rgba(34, 211, 238, 0.25);
+  color: #ffffff;
 }
 
 /* ============================================================
-   Custom scrollbar (subtle, dark)
+   Custom scrollbar
    ============================================================ */
 ::-webkit-scrollbar {
   width: 6px;
@@ -108,21 +135,21 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-default);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-accent);
+  background: var(--cyan-primary);
 }
 
 /* ============================================================
-   Range input — cyan accent
+   Range input — Cyan accent
    ============================================================ */
 input[type="range"] {
   accent-color: var(--cyan-primary);
 }
 
 /* ============================================================
-   Reduced motion — respect prefers-reduced-motion
+   Reduced motion
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -135,7 +162,15 @@ input[type="range"] {
 }
 
 /* ============================================================
-   Prose overrides for react-markdown in synthesis output
+   Dot Matrix Grid Background
+   ============================================================ */
+.bg-grid-pattern {
+  background-image: radial-gradient(rgba(34, 211, 238, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ============================================================
+   Synthesis Markdown Prose
    ============================================================ */
 .synthesis-prose p {
   margin-bottom: 0.85em;
@@ -149,6 +184,7 @@ input[type="range"] {
   color: var(--text-accent);
   margin-top: 1.25em;
   margin-bottom: 0.5em;
+  font-weight: 600;
 }
 
 .synthesis-prose ul,
@@ -158,7 +194,8 @@ input[type="range"] {
 }
 
 .synthesis-prose li {
-  margin-bottom: 0.3em;
+  margin-bottom: 0.35em;
+  color: var(--text-secondary);
 }
 
 .synthesis-prose strong {
@@ -169,8 +206,9 @@ input[type="range"] {
 .synthesis-prose code {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background: var(--bg-elevated);
+  background: var(--bg-surface-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 0.1em 0.4em;
+  padding: 0.15em 0.45em;
+  color: var(--cyan-primary);
 }

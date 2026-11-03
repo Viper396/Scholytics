@@ -57,40 +57,45 @@ export default function SynthesisPanel({
   onCopySynthesis,
 }: SynthesisPanelProps) {
   return (
-    <div
-      className="rounded-[18px] p-5 sm:p-6 shadow-sm"
-      style={{
-        border: "1px solid var(--border-default)",
-        backgroundColor: "var(--bg-surface)",
-      }}
+    <section
+      className="relative overflow-hidden rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-5 sm:p-7 shadow-xl transition-all"
+      aria-label="Research synthesis workbench"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3
-            className="text-lg font-semibold sm:text-xl"
-            style={{ color: "var(--text-primary)" }}
-          >
+      {/* Top Ambient Glow Edge */}
+      <div className="absolute left-0 right-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-80" />
+
+      {/* Header & Primary Action Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#1e385c]/80">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-cyan-400 uppercase">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              Live Semantic Synthesis
+            </span>
+            <span className="rounded-md border border-[#1e385c] bg-[#11223b] px-2 py-0.5 font-mono text-[10px] text-[#9cb1ce]">
+              Top {Math.min(resultsLength, 5)} Papers
+            </span>
+          </div>
+
+          <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[#eaf2ff] leading-snug">
             What does research say about{" "}
-            <em style={{ color: "var(--text-accent)", fontStyle: "normal" }}>
+            <em className="text-cyan-400 not-italic font-semibold">
               {activeQuery}
             </em>
             ?
           </h3>
-          <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+          <p className="text-xs text-[#9cb1ce]">
             Synthesises the top {Math.min(resultsLength, 5)} results using Groq · abstract-based only
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap self-start lg:self-center">
           {isSynthesizing && (
             <button
               type="button"
               onClick={onCancelSynthesis}
-              className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-              style={{
-                border: "1px solid var(--border-default)",
-                backgroundColor: "var(--bg-elevated)",
-                color: "var(--text-secondary)",
-              }}
+              className="rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
             >
               Cancel
             </button>
@@ -100,79 +105,61 @@ export default function SynthesisPanel({
             type="button"
             onClick={onGenerateSynthesis}
             disabled={isSynthesizing}
-            className="rounded-xl px-4 py-2 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-            style={{
-              backgroundColor: "var(--cyan-primary)",
-              color: "var(--cyan-text)",
-            }}
-            onMouseEnter={(e) => {
-              if (!isSynthesizing)
-                e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
-            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 px-5 py-2 text-xs font-bold text-[#04121e] shadow-[0_0_16px_rgba(34,211,238,0.25)] transition-all hover:from-cyan-300 hover:to-cyan-400 hover:shadow-[0_0_24px_rgba(34,211,238,0.4)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label={
               isSynthesizing ? "Generating synthesis…" : "Generate topic synthesis"
             }
           >
-            {isSynthesizing ? "Generating…" : "Generate Synthesis"}
+            {isSynthesizing ? (
+              <>
+                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#04121e] border-t-transparent" />
+                <span>Generating…</span>
+              </>
+            ) : (
+              <>
+                <span aria-hidden="true">✦</span>
+                <span>Generate Synthesis</span>
+              </>
+            )}
           </button>
 
           <button
             type="button"
             onClick={() => onGenerateComparison()}
             disabled={isComparing || resultsLength < 2}
-            className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-            style={
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
               selectedCompareCount >= 2
-                ? {
-                    backgroundColor: "rgba(6,182,212,0.18)",
-                    border: "1px solid rgba(6,182,212,0.45)",
-                    color: "var(--text-accent)",
-                  }
-                : {
-                    border: "1px solid var(--border-default)",
-                    backgroundColor: "var(--bg-elevated)",
-                    color: "var(--text-secondary)",
-                  }
-            }
+                ? "border border-cyan-400/50 bg-cyan-500/20 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.2)]"
+                : "border border-[#1e385c] bg-[#11223b] text-[#9cb1ce] hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+            }`}
             aria-label="Compare selected papers"
           >
-            {isComparing
-              ? "Comparing…"
-              : selectedCompareCount >= 2
-              ? `Compare (${selectedCompareCount})`
-              : "Compare Top 3"}
+            <span aria-hidden="true">⇄</span>
+            <span>
+              {isComparing
+                ? "Comparing…"
+                : selectedCompareCount >= 2
+                ? `Compare (${selectedCompareCount})`
+                : "Compare Top 3"}
+            </span>
           </button>
         </div>
       </div>
 
-      {/* Synthesis error alert */}
+      {/* Synthesis Error Alert */}
       {synthesisError && (
         <div
-          className="mb-3 rounded-lg px-4 py-3 text-sm"
-          style={{
-            border: "1px solid var(--error-border)",
-            backgroundColor: "var(--error-bg)",
-            color: "#fda4af",
-          }}
+          className="my-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs font-medium text-rose-300"
           role="alert"
         >
           {synthesisError}
         </div>
       )}
 
-      {/* Generated text with interactive citations */}
+      {/* Synthesis Output Area */}
       {(synthesisText || isSynthesizing) && (
-        <div
-          className="rounded-xl p-4 sm:p-5"
-          style={{
-            border: "1px solid var(--border-subtle)",
-            backgroundColor: "var(--bg-page)",
-          }}
-        >
-          <div className="synthesis-prose text-sm leading-relaxed">
+        <div className="mt-5 rounded-xl border border-[#1e385c]/80 bg-[#081526] p-5 sm:p-6 shadow-inner">
+          <div className="synthesis-prose text-sm leading-relaxed text-[#eaf2ff]">
             <ReactMarkdown
               components={{
                 p: ({ children }) => {
@@ -190,13 +177,7 @@ export default function SynthesisPanel({
                               <a
                                 key={idx}
                                 href={`#source-${num}`}
-                                className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-xs font-mono font-bold rounded transition-all hover:scale-105 hover:underline focus:outline-none focus:ring-2 focus:ring-[var(--cyan-hover)]"
-                                style={{
-                                  backgroundColor: "var(--cyan-subtle)",
-                                  color: "var(--text-accent)",
-                                  border: "1px solid rgba(6,182,212,0.35)",
-                                  textDecoration: "none",
-                                }}
+                                className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-[11px] font-mono font-bold rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 transition-all hover:scale-105 hover:bg-cyan-500/30 hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-400"
                                 title={`Jump to Grounding Source ${num}`}
                                 aria-label={`Grounding reference: [SOURCE ${num}]`}
                               >
@@ -217,8 +198,7 @@ export default function SynthesisPanel({
 
             {isSynthesizing && (
               <span
-                className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-sm align-middle"
-                style={{ backgroundColor: "var(--text-accent)" }}
+                className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-cyan-400 align-middle"
                 aria-label="Generating…"
               />
             )}
@@ -226,44 +206,21 @@ export default function SynthesisPanel({
         </div>
       )}
 
-      {/* Grounding Sources list (accessible OL with navigable anchors) */}
+      {/* Grounding Sources Matrix List */}
       {synthesisSources.length > 0 && (synthesisText || isSynthesizing) && (
-        <div
-          className="mt-4 rounded-xl p-3.5 sm:p-4 text-xs"
-          style={{
-            border: "1px solid var(--border-subtle)",
-            backgroundColor: "var(--bg-elevated)",
-          }}
-        >
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <span
-              className="font-semibold text-xs tracking-wider uppercase"
-              style={{ color: "var(--text-secondary)" }}
-            >
+        <div className="mt-5 rounded-xl border border-[#1e385c]/80 bg-[#081526] p-4 sm:p-5 text-xs">
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2 border-b border-[#1e385c]/60 pb-3">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
               Grounding Sources ({synthesisSources.length} retrieved papers)
             </span>
 
             {isSynthesisComplete && synthesisValidation && (
               synthesisValidation.has_hallucinations ? (
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{
-                    backgroundColor: "rgba(239,68,68,0.15)",
-                    border: "1px solid rgba(239,68,68,0.3)",
-                    color: "#f87171",
-                  }}
-                >
+                <span className="rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-300">
                   ⚠ Unverified Citations: [SOURCE {synthesisValidation.invalid_citations.join(", ")}]
                 </span>
               ) : (
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{
-                    backgroundColor: "rgba(16,185,129,0.15)",
-                    border: "1px solid rgba(16,185,129,0.3)",
-                    color: "#34d399",
-                  }}
-                >
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                   ✓ Citations Verified ({synthesisValidation.cited_sources.length} sources cited)
                 </span>
               )
@@ -271,7 +228,7 @@ export default function SynthesisPanel({
           </div>
 
           <ol
-            className="grid grid-cols-1 gap-2.5 sm:grid-cols-2"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
             aria-label="Grounding sources"
           >
             {synthesisSources.map((source) => {
@@ -280,34 +237,25 @@ export default function SynthesisPanel({
                 <li
                   key={source.arxiv_id}
                   id={`source-${source.source_index}`}
-                  className="flex flex-col justify-between rounded-lg p-3 transition-colors list-none"
-                  style={{
-                    border: isCited
-                      ? "1px solid rgba(6,182,212,0.4)"
-                      : "1px solid var(--border-subtle)",
-                    backgroundColor: isCited
-                      ? "rgba(6,182,212,0.06)"
-                      : "var(--bg-page)",
-                  }}
+                  className={`flex flex-col justify-between rounded-xl p-3.5 transition-all list-none border ${
+                    isCited
+                      ? "border-cyan-500/40 bg-cyan-500/5 shadow-[0_0_12px_rgba(34,211,238,0.06)]"
+                      : "border-[#1e385c] bg-[#0c1a2e]"
+                  }`}
                 >
                   <div>
-                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                    <div className="mb-2 flex items-start justify-between gap-2">
                       <span
-                        className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold"
-                        style={{
-                          backgroundColor: isCited
-                            ? "var(--cyan-primary)"
-                            : "var(--bg-elevated)",
-                          color: isCited ? "#082f49" : "var(--text-secondary)",
-                        }}
+                        className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                          isCited
+                            ? "bg-cyan-400 text-[#04121e]"
+                            : "bg-[#11223b] text-[#9cb1ce] border border-[#1e385c]"
+                        }`}
                       >
                         SOURCE {source.source_index}
                       </span>
                       {isCited && (
-                        <span
-                          className="text-[10px] font-semibold"
-                          style={{ color: "var(--text-accent)" }}
-                        >
+                        <span className="text-[10px] font-semibold text-cyan-400">
                           ✓ Cited
                         </span>
                       )}
@@ -316,37 +264,31 @@ export default function SynthesisPanel({
                       href={source.entry_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="line-clamp-2 font-medium text-xs hover:underline"
-                      style={{ color: "var(--text-primary)" }}
+                      className="line-clamp-2 font-medium text-xs text-[#eaf2ff] hover:text-cyan-300 hover:underline leading-snug"
                     >
                       {source.title}
                     </a>
                   </div>
 
-                  <div
-                    className="mt-3 flex items-center justify-between text-[11px] border-t pt-2"
-                    style={{ borderColor: "rgba(255,255,255,0.05)", color: "var(--text-muted)" }}
-                  >
-                    <span>
+                  <div className="mt-3 flex items-center justify-between text-[11px] border-t border-[#1e385c]/60 pt-2 text-[#9cb1ce]">
+                    <span className="truncate max-w-[150px]">
                       {source.authors.length > 0
                         ? `${source.authors[0]}${source.authors.length > 1 ? " et al." : ""}`
                         : source.arxiv_id}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <a
                         href={`#paper-${source.arxiv_id}`}
-                        className="font-medium hover:underline transition-colors"
-                        style={{ color: "var(--text-secondary)" }}
+                        className="font-medium text-[#9cb1ce] hover:text-cyan-300 hover:underline transition-colors"
                         aria-label={`Jump to ${source.title} in results`}
                       >
-                        Jump to paper ↓
+                        Jump ↓
                       </a>
                       <a
                         href={source.entry_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-medium hover:underline"
-                        style={{ color: "var(--text-accent-dim)" }}
+                        className="font-mono text-[10px] text-cyan-400 hover:underline"
                         aria-label={`Open arXiv abstract for ${source.title}`}
                       >
                         arXiv ↗
@@ -356,8 +298,7 @@ export default function SynthesisPanel({
                           href={source.pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium hover:underline"
-                          style={{ color: "var(--text-accent)" }}
+                          className="font-mono text-[10px] text-cyan-300 hover:underline"
                           aria-label={`Open PDF for ${source.title}`}
                         >
                           PDF ↗
@@ -370,34 +311,30 @@ export default function SynthesisPanel({
             })}
           </ol>
 
-          <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+          <p className="mt-3 text-[11px] text-[#5e779a]">
             ⚠ Grounding Guarantee: Citations are cross-referenced against the retrieved candidate papers.
             Does not perform automated laboratory fact verification.
           </p>
         </div>
       )}
 
-      {/* Completion footer */}
+      {/* Completion Footer */}
       {isSynthesisComplete && synthesisText && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-[#1e385c]/80">
+          <p className="text-xs text-[#5e779a]">
             ⚠ Generated from abstracts only — verify claims in original papers.
           </p>
           <button
             type="button"
             onClick={onCopySynthesis}
-            className="rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-            style={{
-              border: "1px solid var(--border-default)",
-              backgroundColor: "var(--bg-elevated)",
-              color: "var(--text-secondary)",
-            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e385c] bg-[#11223b] px-3.5 py-1.5 text-xs font-semibold text-[#eaf2ff] transition-all hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label="Copy synthesis to clipboard"
           >
-            {copyLabel}
+            <span>📋</span>
+            <span>{copyLabel}</span>
           </button>
         </div>
       )}
-    </div>
+    </section>
   );
 }

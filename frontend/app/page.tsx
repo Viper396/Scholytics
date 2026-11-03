@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import Link from "next/link";
+import Nav from "../components/Nav";
 import PaperCard, { PaperResult } from "../components/PaperCard";
 import SynthesisPanel, {
   SynthesisSource,
@@ -96,43 +97,33 @@ function saveReadingList(list: ReadingListEntry[]) {
 function SkeletonCards() {
   return (
     <div
-      className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+      className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
       role="status"
       aria-label="Loading search results"
     >
       {Array.from({ length: 6 }).map((_, idx) => (
         <div
           key={idx}
-          className="animate-pulse rounded-[18px] p-5"
-          style={{
-            border: "1px solid var(--border-subtle)",
-            backgroundColor: "var(--bg-surface)",
-          }}
+          className="relative overflow-hidden rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-6 shadow-md"
         >
-          <div
-            className="mb-3 h-4 w-1/3 rounded-full"
-            style={{ backgroundColor: "var(--bg-elevated)" }}
-          />
-          <div
-            className="mb-2 h-5 w-4/5 rounded"
-            style={{ backgroundColor: "var(--bg-elevated)" }}
-          />
-          <div
-            className="mb-4 h-3.5 w-1/2 rounded"
-            style={{ backgroundColor: "var(--bg-elevated)" }}
-          />
-          <div
-            className="mb-2 h-3 w-full rounded"
-            style={{ backgroundColor: "var(--bg-elevated)" }}
-          />
-          <div
-            className="mb-2 h-3 w-5/6 rounded"
-            style={{ backgroundColor: "var(--bg-elevated)" }}
-          />
-          <div
-            className="h-3 w-3/4 rounded"
-            style={{ backgroundColor: "var(--bg-elevated)" }}
-          />
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent" />
+          <div className="mb-4 flex items-center justify-between">
+            <div className="h-5 w-24 rounded-md bg-[#11223b]" />
+            <div className="h-5 w-20 rounded-md bg-[#11223b]" />
+          </div>
+          <div className="mb-3 h-6 w-5/6 rounded-lg bg-[#11223b]" />
+          <div className="mb-4 h-4 w-1/2 rounded bg-[#11223b]" />
+          <div className="mb-4 h-8 w-full rounded-xl bg-[#081526]" />
+          <div className="space-y-2">
+            <div className="h-3.5 w-full rounded bg-[#11223b]" />
+            <div className="h-3.5 w-5/6 rounded bg-[#11223b]" />
+            <div className="h-3.5 w-3/4 rounded bg-[#11223b]" />
+          </div>
+          <div className="mt-5 flex items-center gap-2 pt-4 border-t border-[#1e385c]/60">
+            <div className="h-7 w-20 rounded-lg bg-[#11223b]" />
+            <div className="h-7 w-20 rounded-lg bg-[#11223b]" />
+            <div className="h-7 w-16 rounded-lg bg-[#11223b]" />
+          </div>
         </div>
       ))}
     </div>
@@ -155,30 +146,26 @@ function ReadingListPanel({
       role="dialog"
       aria-modal="true"
       aria-label="Reading list"
-      className="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col p-6 shadow-2xl transition-transform"
-      style={{
-        backgroundColor: "var(--bg-surface)",
-        borderLeft: "1px solid var(--border-default)",
-      }}
+      className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-[#1e385c] bg-[#0c1a2e]/95 p-6 shadow-2xl backdrop-blur-xl transition-all"
     >
-      <div className="mb-4 flex items-center justify-between border-b pb-4" style={{ borderColor: "var(--border-subtle)" }}>
-        <div className="flex items-center gap-2">
-          <span aria-hidden="true" className="text-xl">📚</span>
-          <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-            Saved Papers ({list.length})
-          </h2>
+      <div className="mb-5 flex items-center justify-between border-b border-[#1e385c] pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+            <span aria-hidden="true">★</span>
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-[#eaf2ff]">
+              Saved Papers ({list.length})
+            </h2>
+            <p className="text-[11px] text-[#5e779a]">Local browser reading list</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {list.length > 0 && (
             <button
               type="button"
               onClick={onClear}
-              className="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
-              style={{
-                border: "1px solid var(--border-subtle)",
-                backgroundColor: "var(--bg-elevated)",
-                color: "var(--text-secondary)",
-              }}
+              className="rounded-lg border border-[#1e385c] bg-[#11223b] px-2.5 py-1 text-xs font-medium text-[#9cb1ce] transition-colors hover:border-rose-500/40 hover:text-rose-300"
               aria-label="Clear all saved papers"
             >
               Clear all
@@ -187,8 +174,7 @@ function ReadingListPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-xs transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-            style={{ color: "var(--text-secondary)" }}
+            className="rounded-lg border border-[#1e385c] bg-[#11223b] p-1.5 text-xs text-[#9cb1ce] transition-colors hover:text-[#eaf2ff] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
             aria-label="Close reading list"
           >
             ✕
@@ -197,12 +183,14 @@ function ReadingListPanel({
       </div>
 
       {list.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <span className="text-3xl mb-2" aria-hidden="true">📖</span>
-          <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+        <div className="flex flex-1 flex-col items-center justify-center text-center p-6">
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#1e385c] bg-[#11223b] text-2xl text-amber-400">
+            ★
+          </div>
+          <p className="text-sm font-semibold text-[#eaf2ff]">
             No saved papers yet.
           </p>
-          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+          <p className="mt-1 max-w-xs text-xs text-[#5e779a]">
             Click &ldquo;Save&rdquo; on any search result to build your reading list.
           </p>
         </div>
@@ -211,53 +199,45 @@ function ReadingListPanel({
           {list.map((item) => (
             <li
               key={item.arxiv_id}
-              className="rounded-xl p-3.5 transition-colors"
-              style={{
-                border: "1px solid var(--border-subtle)",
-                backgroundColor: "var(--bg-page)",
-              }}
+              className="rounded-xl border border-[#1e385c] bg-[#081526] p-4 transition-all hover:border-cyan-500/30"
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-2.5">
                 <a
                   href={item.entry_url || `https://arxiv.org/abs/${item.arxiv_id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-xs hover:underline leading-snug"
-                  style={{ color: "var(--text-primary)" }}
+                  className="font-medium text-xs text-[#eaf2ff] hover:text-cyan-300 hover:underline leading-snug"
                 >
                   {item.title}
                 </a>
                 <button
                   type="button"
                   onClick={() => onRemove(item.arxiv_id)}
-                  className="shrink-0 text-xs transition-colors hover:opacity-80 p-0.5"
-                  style={{ color: "var(--text-muted)" }}
+                  className="shrink-0 p-1 text-xs text-[#5e779a] transition-colors hover:text-rose-400"
                   aria-label={`Remove ${item.title} from reading list`}
                 >
                   ✕
                 </button>
               </div>
-              <p className="mt-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+              <p className="mt-1.5 text-[11px] text-[#9cb1ce]">
                 {item.authors.slice(0, 2).join(", ")}
                 {item.authors.length > 2 && " et al."}
               </p>
-              <div className="mt-2.5 flex items-center justify-between text-[11px]">
+              <div className="mt-3 flex items-center justify-between border-t border-[#1e385c]/60 pt-2 text-[11px]">
                 <a
                   href={item.entry_url || `https://arxiv.org/abs/${item.arxiv_id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-mono text-[10px] hover:underline"
-                  style={{ color: "var(--text-accent-dim)" }}
+                  className="font-mono text-[10px] text-cyan-400 hover:underline"
                 >
                   arXiv:{item.arxiv_id}
                 </a>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <a
                     href={item.pdf_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium hover:underline"
-                    style={{ color: "var(--text-accent)" }}
+                    className="font-mono text-[10px] font-semibold text-cyan-300 hover:underline"
                   >
                     PDF ↗
                   </a>
@@ -268,7 +248,7 @@ function ReadingListPanel({
         </ul>
       )}
 
-      <p className="mt-4 border-t pt-3 text-[11px] text-center" style={{ borderColor: "var(--border-subtle)", color: "var(--text-muted)" }}>
+      <p className="mt-4 border-t border-[#1e385c] pt-3 text-center text-[11px] text-[#5e779a]">
         Saved locally in this browser.
       </p>
     </aside>
@@ -902,13 +882,19 @@ export default function Home() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <>
+    <div className="min-h-screen bg-[#051424] text-[#eaf2ff]">
+      {/* Navigation Header */}
+      <Nav
+        selectedIds={selectedForGraph}
+        savedCount={readingList.length}
+        onOpenSaved={() => setShowReadingList(true)}
+      />
+
       {/* Reading list overlay */}
       {showReadingList && (
         <>
           <div
-            className="fixed inset-0 z-30"
-            style={{ backgroundColor: "rgba(5,13,26,0.7)" }}
+            className="fixed inset-0 z-40 bg-[#051424]/80 backdrop-blur-sm"
             onClick={() => setShowReadingList(false)}
             aria-hidden="true"
           />
@@ -930,591 +916,404 @@ export default function Home() {
         </>
       )}
 
-      <main
-        className="min-h-screen"
-        style={{ backgroundColor: "var(--bg-page)", color: "var(--text-primary)" }}
-      >
-        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="page-container py-8 sm:py-10 flex flex-col gap-8 sm:gap-10">
+        {/* ── Hero / Omni-Search Section ──────────────────────────────── */}
+        <section className="relative overflow-hidden rounded-3xl border border-[#1e385c] bg-[#0c1a2e] px-6 py-10 sm:px-12 sm:py-16 text-center shadow-2xl">
+          {/* Ambient Radial Glow */}
+          <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-[340px] w-[700px] rounded-full bg-cyan-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 right-10 h-64 w-96 rounded-full bg-emerald-500/5 blur-3xl" />
 
-          {/* ── Top Header / Brand Bar ───────────────────────────────────── */}
-          <header
-            className="mb-10 flex flex-wrap items-center justify-between gap-3 rounded-[18px] p-4 shadow-sm"
-            style={{
-              border: "1px solid var(--border-default)",
-              backgroundColor: "var(--bg-surface)",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
-                style={{
-                  backgroundColor: "var(--cyan-subtle)",
-                  border: "1px solid rgba(6,182,212,0.3)",
-                }}
-                aria-hidden="true"
-              >
-                <span style={{ color: "var(--text-accent)", fontSize: "1.2rem" }}>⬡</span>
-              </div>
-              <div>
-                <h1
-                  className="text-xl font-bold tracking-tight sm:text-2xl"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Scholytics
-                </h1>
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Semantic paper discovery &amp; synthesis
-                </p>
-              </div>
-            </div>
+          {/* Micro Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-1 text-xs font-mono font-semibold tracking-wider text-cyan-400 uppercase shadow-sm mb-5">
+            <span aria-hidden="true" className="animate-pulse">✦</span>
+            <span>AI-Powered Research Discovery</span>
+          </div>
 
-            <div className="flex items-center gap-2">
-              {/* Reading list button */}
+          {/* Main Headline */}
+          <h1 className="mx-auto max-w-4xl text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#eaf2ff] leading-tight">
+            Discover Research <span className="text-cyan-400">Faster</span>
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-[#9cb1ce] leading-relaxed">
+            Search live arXiv papers, generate summaries, synthesize research, and
+            explore connections between ideas.
+          </p>
+
+          {/* Example suggested queries */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#5e779a]">
+              Try:
+            </span>
+            {EXAMPLE_QUERIES.map((example) => (
               <button
+                key={example}
                 type="button"
-                onClick={() => setShowReadingList(true)}
-                className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-                style={{
-                  border: "1px solid var(--border-default)",
-                  backgroundColor: "var(--bg-elevated)",
-                  color: "var(--text-secondary)",
-                }}
-                aria-label={`Reading list (${readingList.length} saved)`}
+                onClick={() => handleExampleClick(example)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#1e385c] bg-[#11223b] px-3.5 py-1.5 text-xs font-medium text-[#9cb1ce] transition-all hover:border-cyan-500/50 hover:bg-[#182e4e] hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                aria-label={`Fill search with: ${example}`}
               >
-                <span aria-hidden="true">📚</span>
-                <span className="hidden sm:inline">Saved</span>
-                {readingList.length > 0 && (
-                  <span
-                    className="rounded-full px-1.5 py-0.2 text-xs font-bold"
-                    style={{
-                      backgroundColor: "var(--cyan-subtle)",
-                      color: "var(--text-accent)",
-                    }}
-                  >
-                    {readingList.length}
-                  </span>
-                )}
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400/50" />
+                <span>{example}</span>
               </button>
+            ))}
+          </div>
 
-              {/* Graph button */}
-              <Link
-                href={graphHref}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-                style={{
-                  backgroundColor: "var(--cyan-primary)",
-                  color: "var(--cyan-text)",
-                }}
-                aria-label={`Open research graph (${selectedGraphCount} papers selected)`}
-              >
-                <span aria-hidden="true">◈</span>
-                <span>Graph</span>
-                <span
-                  className="rounded-full px-2 py-0.5 text-xs font-bold"
-                  style={{ backgroundColor: "rgba(0,0,0,0.2)", color: "inherit" }}
+          {/* Omni-Search Bar */}
+          <div className="mx-auto mt-8 w-full max-w-3xl">
+            <form onSubmit={handleSearchSubmit} role="search" className="w-full">
+              <label htmlFor="search-input" className="sr-only">
+                Search arXiv research papers
+              </label>
+
+              <div className="relative flex items-center rounded-2xl border border-[#1e385c] bg-[#081526] p-1.5 shadow-2xl transition-all focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-400/25">
+                <div
+                  className="pointer-events-none flex items-center pl-3.5 pr-2 text-cyan-400"
+                  aria-hidden="true"
                 >
-                  {selectedGraphCount}
-                </span>
-              </Link>
-            </div>
-          </header>
-
-          {/* ── Hero + Search Field ──────────────────────────────────────── */}
-          <section className="mx-auto max-w-4xl text-center">
-            <h2
-              className="text-4xl font-extrabold tracking-tight sm:text-5xl"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Discover Research{" "}
-              <span style={{ color: "var(--text-accent)" }}>Faster</span>
-            </h2>
-            <p
-              className="mx-auto mt-4 max-w-2xl text-base sm:text-lg"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Search live arXiv papers, generate summaries, synthesize topics, and
-              explore paper relationships — all in one workflow.
-            </p>
-
-            {/* Example suggested queries */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-                Try:
-              </span>
-              {EXAMPLE_QUERIES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => handleExampleClick(example)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                  style={{
-                    border: "1px solid var(--border-default)",
-                    backgroundColor: "var(--bg-elevated)",
-                    color: "var(--text-secondary)",
-                  }}
-                  aria-label={`Fill search with: ${example}`}
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-
-            {/* Search form */}
-            <form onSubmit={handleSearchSubmit} className="mt-6" role="search">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <label htmlFor="search-input" className="sr-only">
-                  Search arXiv research papers
-                </label>
-                <div className="relative flex-1">
-                  <div
-                    className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"
-                    aria-hidden="true"
-                    style={{ color: "var(--text-muted)" }}
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    id="search-input"
-                    value={queryInput}
-                    onChange={(event) => setQueryInput(event.target.value)}
-                    placeholder="Search arXiv topics, methods, or questions…"
-                    maxLength={400}
-                    autoComplete="off"
-                    className="h-12 w-full rounded-xl pl-11 pr-10 text-base transition-all"
-                    style={{
-                      border: "1px solid var(--border-default)",
-                      backgroundColor: "var(--bg-input)",
-                      color: "var(--text-primary)",
-                      outline: "none",
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border-focus)";
-                      e.currentTarget.style.boxShadow = "var(--shadow-cyan)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border-default)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  />
-                  {queryInput.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setQueryInput("")}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-xs transition-colors hover:opacity-80"
-                      style={{ color: "var(--text-muted)" }}
-                      aria-label="Clear search input"
-                    >
-                      ✕
-                    </button>
-                  )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
                 </div>
+
+                <input
+                  id="search-input"
+                  value={queryInput}
+                  onChange={(event) => setQueryInput(event.target.value)}
+                  placeholder="Search arXiv topics, methods, or questions…"
+                  maxLength={400}
+                  autoComplete="off"
+                  className="h-11 w-full bg-transparent px-2 text-sm sm:text-base text-[#eaf2ff] placeholder-[#5e779a] focus:outline-none"
+                />
+
+                {queryInput.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setQueryInput("")}
+                    className="mr-2 rounded-lg p-1 text-xs text-[#5e779a] transition-colors hover:text-[#eaf2ff]"
+                    aria-label="Clear search input"
+                  >
+                    ✕
+                  </button>
+                )}
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="h-12 rounded-xl px-7 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-                  style={{
-                    backgroundColor: "var(--cyan-primary)",
-                    color: "var(--cyan-text)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isLoading)
-                      e.currentTarget.style.backgroundColor = "var(--cyan-hover)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--cyan-primary)";
-                  }}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 px-5 sm:px-7 text-xs sm:text-sm font-bold text-[#04121e] shadow-[0_0_16px_rgba(34,211,238,0.25)] transition-all hover:from-cyan-300 hover:to-cyan-400 hover:shadow-[0_0_24px_rgba(34,211,238,0.4)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 shrink-0"
                 >
-                  {isLoading ? "Searching…" : "Search"}
+                  {isLoading ? (
+                    <>
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#04121e] border-t-transparent" />
+                      <span>Searching…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Search</span>
+                      <span aria-hidden="true" className="text-sm">→</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
-          </section>
+          </div>
+        </section>
 
-          {/* ── Filters Section ──────────────────────────────────────────── */}
-          <section
-            className="mx-auto mt-6 w-full max-w-5xl rounded-[18px] p-5 transition-all shadow-sm"
-            style={{
-              border:
-                activeFilterCount > 0
-                  ? "1px solid rgba(6,182,212,0.35)"
-                  : "1px solid var(--border-subtle)",
-              backgroundColor: "var(--bg-surface)",
-            }}
-            aria-label="Search filters"
-          >
-            <div className="mb-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <p
-                  className="text-xs font-bold uppercase tracking-widest"
-                  style={{ color: "var(--text-accent-dim)" }}
+        {/* ── Filters Section ──────────────────────────────────────────── */}
+        <section
+          className={`rounded-2xl border bg-[#0c1a2e] p-5 sm:p-6 shadow-md transition-all ${
+            activeFilterCount > 0 ? "border-cyan-500/40" : "border-[#1e385c]"
+          }`}
+          aria-label="Search filters"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#1e385c]/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-cyan-400">
+                Filters
+              </span>
+              {activeFilterCount > 0 ? (
+                <span
+                  className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-cyan-400"
+                  aria-label={`${activeFilterCount} active filters`}
                 >
-                  Filters
-                </p>
-                {activeFilterCount > 0 ? (
-                  <span
-                    className="rounded-full px-2 py-0.5 text-xs font-semibold"
-                    style={{
-                      backgroundColor: "var(--cyan-subtle)",
-                      color: "var(--text-accent)",
-                      border: "1px solid rgba(6,182,212,0.3)",
-                    }}
-                    aria-label={`${activeFilterCount} active filters`}
-                  >
-                    {activeFilterCount} active
-                  </span>
-                ) : (
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    Default: All categories · 2015+
-                  </span>
-                )}
-              </div>
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="text-xs font-medium transition-colors hover:underline focus-visible:outline-none"
-                  style={{ color: "var(--text-accent)" }}
-                >
-                  Reset filters
-                </button>
+                  {activeFilterCount} active
+                </span>
+              ) : (
+                <span className="text-xs text-[#5e779a]">
+                  Default: All categories · 2015+
+                </span>
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              {/* Year range */}
-              <div>
-                <p
-                  className="mb-2 text-xs font-semibold uppercase tracking-widest"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Earliest Publication Year
-                </p>
-                <div
-                  className="mb-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm"
-                  style={{
-                    border: "1px solid var(--border-subtle)",
-                    backgroundColor: "var(--bg-elevated)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <span>
-                    From:{" "}
-                    <strong style={{ color: "var(--text-primary)" }}>
-                      {yearFrom} or later
-                    </strong>
-                  </span>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {yearFrom > MIN_YEAR ? "Lower bound" : `All (${MIN_YEAR}+)`}
-                  </span>
-                </div>
-                <label htmlFor="year-range" className="sr-only">
-                  Earliest publication year: {yearFrom} or later
-                </label>
-                <input
-                  id="year-range"
-                  type="range"
-                  min={MIN_YEAR}
-                  max={CURRENT_YEAR}
-                  value={yearFrom}
-                  onChange={(event) => setYearFrom(Number(event.target.value))}
-                  className="w-full"
-                  aria-valuemin={MIN_YEAR}
-                  aria-valuemax={CURRENT_YEAR}
-                  aria-valuenow={yearFrom}
-                  aria-label={`Earliest publication year: ${yearFrom} or later`}
-                />
-              </div>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs font-medium text-cyan-400 hover:text-cyan-300 hover:underline focus-visible:outline-none"
+              >
+                Reset filters
+              </button>
+            )}
+          </div>
 
-              {/* Categories */}
-              <div>
-                <p
-                  className="mb-2 text-xs font-semibold uppercase tracking-widest"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Categories
-                </p>
-                <div
-                  className="flex flex-wrap gap-1.5"
-                  role="group"
-                  aria-label="Research category filters"
-                >
-                  {AVAILABLE_CATEGORIES.map((category) => {
-                    const active = selectedCategories.includes(category);
-                    return (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => toggleCategory(category)}
-                        className="rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                        style={{
-                          border: active
-                            ? "1px solid rgba(6,182,212,0.5)"
-                            : "1px solid var(--border-subtle)",
-                          backgroundColor: active
-                            ? "var(--cyan-subtle)"
-                            : "var(--bg-elevated)",
-                          color: active
-                            ? "var(--text-accent)"
-                            : "var(--text-secondary)",
-                        }}
-                        aria-pressed={active}
-                        aria-label={`${active ? "Remove" : "Add"} ${category} filter`}
-                      >
-                        {active && <span className="mr-1">✓</span>}
-                        {category}
-                      </button>
-                    );
-                  })}
-                </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {/* Year Range Slider */}
+            <div className="flex flex-col gap-2">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#9cb1ce]">
+                Earliest Publication Year
+              </p>
+              <div className="flex items-center justify-between rounded-xl border border-[#1e385c] bg-[#081526] px-3.5 py-2 text-xs text-[#9cb1ce]">
+                <span>
+                  From:{" "}
+                  <strong className="text-[#eaf2ff]">
+                    {yearFrom} or later
+                  </strong>
+                </span>
+                <span className="font-mono text-[10px] text-[#5e779a]">
+                  {yearFrom > MIN_YEAR ? "Lower bound" : `All (${MIN_YEAR}+)`}
+                </span>
               </div>
+              <label htmlFor="year-range" className="sr-only">
+                Earliest publication year: {yearFrom} or later
+              </label>
+              <input
+                id="year-range"
+                type="range"
+                min={MIN_YEAR}
+                max={CURRENT_YEAR}
+                value={yearFrom}
+                onChange={(event) => setYearFrom(Number(event.target.value))}
+                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-[#11223b] rounded-lg"
+                aria-valuemin={MIN_YEAR}
+                aria-valuemax={CURRENT_YEAR}
+                aria-valuenow={yearFrom}
+                aria-label={`Earliest publication year: ${yearFrom} or later`}
+              />
+            </div>
 
-              {/* Result count */}
-              <div>
-                <label
-                  htmlFor="result-count"
-                  className="mb-2 block text-xs font-semibold uppercase tracking-widest"
-                  style={{ color: "var(--text-secondary)" }}
+            {/* arXiv Category Chips */}
+            <div className="flex flex-col gap-2">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#9cb1ce]">
+                Categories
+              </p>
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Research category filters"
+              >
+                {AVAILABLE_CATEGORIES.map((category) => {
+                  const active = selectedCategories.includes(category);
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className={`rounded-lg px-2.5 py-1 font-mono text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
+                        active
+                          ? "border border-cyan-400/50 bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.15)]"
+                          : "border border-[#1e385c] bg-[#081526] text-[#9cb1ce] hover:border-cyan-500/40 hover:text-[#eaf2ff]"
+                      }`}
+                      aria-pressed={active}
+                      aria-label={`${active ? "Remove" : "Add"} ${category} filter`}
+                    >
+                      {active && <span className="mr-1">✓</span>}
+                      {category}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Result Density Count */}
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="result-count"
+                className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#9cb1ce]"
+              >
+                Result Count
+              </label>
+              <select
+                id="result-count"
+                value={maxResults}
+                onChange={(event) => setMaxResults(Number(event.target.value))}
+                className="h-10 w-full rounded-xl border border-[#1e385c] bg-[#081526] px-3.5 text-xs text-[#eaf2ff] transition-all focus:border-cyan-400 focus:outline-none"
+              >
+                <option value={5}>5 papers</option>
+                <option value={10}>10 papers</option>
+                <option value={25}>25 papers</option>
+              </select>
+              <p className="text-xs text-[#5e779a]">
+                Graph selection:{" "}
+                <span className="font-mono font-bold text-cyan-400" aria-live="polite">
+                  {selectedGraphCount}
+                </span>
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Results Section ──────────────────────────────────────────── */}
+        <section
+          className="w-full"
+          aria-label="Search results"
+          aria-live="polite"
+        >
+          {/* Ranking degraded note */}
+          {rankingNote && !isLoading && (
+            <div
+              className="mb-6 flex items-center gap-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-300"
+              role="alert"
+            >
+              <span>⚠</span>
+              <span>{rankingNote}</span>
+            </div>
+          )}
+
+          {/* Initial Empty Prompt */}
+          {showEmptyPrompt && (
+            <div className="grid min-h-[340px] place-items-center rounded-3xl border border-dashed border-[#1e385c] bg-[#0c1a2e]/60 p-10 text-center">
+              <div className="flex flex-col items-center max-w-md">
+                <div
+                  className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#1e385c] bg-[#11223b] text-3xl shadow-lg"
+                  aria-hidden="true"
                 >
-                  Result Count
-                </label>
-                <select
-                  id="result-count"
-                  value={maxResults}
-                  onChange={(event) => setMaxResults(Number(event.target.value))}
-                  className="h-10 w-full rounded-lg px-3 text-sm transition-all"
-                  style={{
-                    border: "1px solid var(--border-default)",
-                    backgroundColor: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                    outline: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border-focus)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border-default)";
-                  }}
-                >
-                  <option value={5}>5 papers</option>
-                  <option value={10}>10 papers</option>
-                  <option value={25}>25 papers</option>
-                </select>
-                <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                  Graph selection:{" "}
-                  <span style={{ color: "var(--text-accent)" }} aria-live="polite">
-                    {selectedGraphCount}
-                  </span>
+                  🔭
+                </div>
+                <p className="text-xl font-bold tracking-tight text-[#eaf2ff]">
+                  Search for any research topic
+                </p>
+                <p className="mt-2 text-xs sm:text-sm text-[#9cb1ce]">
+                  Try one of the example queries above, or type your own question.
                 </p>
               </div>
             </div>
-          </section>
+          )}
 
-          {/* ── Results Section ──────────────────────────────────────────── */}
-          <section
-            className="mx-auto mt-8 w-full max-w-6xl"
-            aria-label="Search results"
-            aria-live="polite"
-          >
-            {/* Ranking degraded note */}
-            {rankingNote && !isLoading && (
-              <div
-                className="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
-                style={{
-                  border: "1px solid rgba(245,158,11,0.3)",
-                  backgroundColor: "rgba(245,158,11,0.07)",
-                  color: "#fbbf24",
-                }}
-                role="alert"
+          {/* Loading Skeletons */}
+          {isLoading && <SkeletonCards />}
+
+          {/* Error State */}
+          {!isLoading && errorMessage && (
+            <div
+              className="mx-auto max-w-2xl rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-center"
+              role="alert"
+            >
+              <p className="mb-4 text-sm font-semibold text-rose-300">
+                {errorMessage}
+              </p>
+              <button
+                type="button"
+                onClick={() => runSearch(activeQuery || queryInput)}
+                className="rounded-xl bg-rose-700 hover:bg-rose-600 px-5 py-2 text-xs font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
               >
-                <span>⚠</span>
-                <span>{rankingNote}</span>
-              </div>
-            )}
+                Retry
+              </button>
+            </div>
+          )}
 
-            {/* Empty prompt */}
-            {showEmptyPrompt && (
-              <div
-                className="grid min-h-72 place-items-center rounded-[18px] p-10 text-center"
-                style={{
-                  border: "1px dashed var(--border-subtle)",
-                  backgroundColor: "var(--bg-surface)",
-                }}
-              >
-                <div>
-                  <div
-                    className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl"
-                    style={{
-                      backgroundColor: "var(--bg-elevated)",
-                      border: "1px solid var(--border-subtle)",
-                    }}
-                    aria-hidden="true"
-                  >
-                    🔭
-                  </div>
-                  <p
-                    className="text-xl font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Search for any research topic
-                  </p>
-                  <p
-                    className="mt-2 text-sm"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Try one of the example queries above, or type your own question.
-                  </p>
-                </div>
-              </div>
-            )}
+          {/* No Results */}
+          {showNoResults && (
+            <div
+              className="mx-auto max-w-2xl rounded-2xl border border-[#1e385c] bg-[#0c1a2e] p-8 text-center"
+              role="status"
+            >
+              <p className="text-lg font-bold text-[#eaf2ff]">
+                No papers found
+              </p>
+              <p className="mt-2 text-xs sm:text-sm text-[#9cb1ce]">
+                Try broadening your query, reducing the year filter, or removing
+                category filters.
+              </p>
+            </div>
+          )}
 
-            {/* Loading skeletons */}
-            {isLoading && <SkeletonCards />}
+          {/* Results List */}
+          {!isLoading && !errorMessage && results.length > 0 && (
+            <div className="space-y-8">
+              {/* Synthesis Panel */}
+              <SynthesisPanel
+                activeQuery={activeQuery}
+                isSynthesizing={isSynthesizing}
+                isSynthesisComplete={isSynthesisComplete}
+                synthesisText={synthesisText}
+                synthesisError={synthesisError}
+                synthesisSources={synthesisSources}
+                synthesisValidation={synthesisValidation}
+                copyLabel={copyLabel}
+                selectedCompareCount={selectedForCompare.length}
+                isComparing={isComparing}
+                resultsLength={results.length}
+                onGenerateSynthesis={generateSynthesis}
+                onCancelSynthesis={cancelSynthesis}
+                onGenerateComparison={generateComparison}
+                onCopySynthesis={copySynthesis}
+              />
 
-            {/* Error state */}
-            {!isLoading && errorMessage && (
-              <div
-                className="mx-auto max-w-3xl rounded-[18px] p-6 text-center"
-                style={{
-                  border: "1px solid var(--error-border)",
-                  backgroundColor: "var(--error-bg)",
-                }}
-                role="alert"
-              >
-                <p className="mb-4 text-sm font-medium" style={{ color: "#fda4af" }}>
-                  {errorMessage}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => runSearch(activeQuery || queryInput)}
-                  className="rounded-lg px-5 py-2 text-sm font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
-                  style={{ backgroundColor: "var(--error)", color: "#fff0f3" }}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {/* No results */}
-            {showNoResults && (
-              <div
-                className="mx-auto max-w-3xl rounded-[18px] p-8 text-center"
-                style={{
-                  border: "1px solid var(--border-subtle)",
-                  backgroundColor: "var(--bg-surface)",
-                }}
-                role="status"
-              >
-                <p
-                  className="text-lg font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  No papers found
-                </p>
-                <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  Try broadening your query, reducing the year filter, or removing
-                  category filters.
-                </p>
-              </div>
-            )}
-
-            {/* Results list */}
-            {!isLoading && !errorMessage && results.length > 0 && (
-              <div className="space-y-6">
-                {/* Synthesis Panel */}
-                <SynthesisPanel
-                  activeQuery={activeQuery}
-                  isSynthesizing={isSynthesizing}
-                  isSynthesisComplete={isSynthesisComplete}
-                  synthesisText={synthesisText}
-                  synthesisError={synthesisError}
-                  synthesisSources={synthesisSources}
-                  synthesisValidation={synthesisValidation}
-                  copyLabel={copyLabel}
-                  selectedCompareCount={selectedForCompare.length}
+              {/* Structured Paper Comparison Section */}
+              {showComparisonView && (
+                <ComparisonMatrix
                   isComparing={isComparing}
-                  resultsLength={results.length}
-                  onGenerateSynthesis={generateSynthesis}
-                  onCancelSynthesis={cancelSynthesis}
-                  onGenerateComparison={generateComparison}
-                  onCopySynthesis={copySynthesis}
+                  comparisonError={comparisonError}
+                  comparisonResult={comparisonResult}
+                  onClose={() => setShowComparisonView(false)}
+                  onRetry={() => generateComparison()}
                 />
+              )}
 
-                {/* Structured Paper Comparison Section */}
-                {showComparisonView && (
-                  <ComparisonMatrix
-                    isComparing={isComparing}
-                    comparisonError={comparisonError}
-                    comparisonResult={comparisonResult}
-                    onClose={() => setShowComparisonView(false)}
-                    onRetry={() => generateComparison()}
-                  />
-                )}
-
-                {/* Result count + graph prompt */}
-                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    <span
-                      className="font-semibold"
-                      style={{ color: "var(--text-primary)" }}
-                    >
+              {/* Result Summary Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e385c]/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <p className="text-xs sm:text-sm text-[#9cb1ce]">
+                    <span className="font-mono font-bold text-[#eaf2ff]">
                       {results.length}
                     </span>{" "}
                     papers · ranked by semantic similarity to search query
                   </p>
-                  {selectedGraphCount > 0 && (
-                    <Link
-                      href={graphHref}
-                      className="rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-focus)]"
-                      style={{
-                        backgroundColor: "var(--cyan-subtle)",
-                        color: "var(--text-accent)",
-                        border: "1px solid rgba(6,182,212,0.3)",
-                      }}
-                    >
-                      Open graph ({selectedGraphCount}) →
-                    </Link>
-                  )}
                 </div>
-
-                {/* Paper cards grid */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {results.map((paper) => (
-                    <PaperCard
-                      key={paper.arxiv_id}
-                      paper={paper}
-                      inGraph={normalizedSelectedForGraph.includes(paper.arxiv_id)}
-                      isSaved={savedIds.has(paper.arxiv_id)}
-                      inCompare={selectedForCompare.includes(paper.arxiv_id)}
-                      abstractExpanded={!!expandedAbstracts[paper.arxiv_id]}
-                      summaryState={summaryById[paper.arxiv_id]}
-                      onToggleAbstract={toggleAbstract}
-                      onToggleGraph={toggleGraphSelection}
-                      onToggleCompare={toggleComparePaper}
-                      onToggleSaved={toggleSavedPaper}
-                      onSummarize={summarizePaper}
-                    />
-                  ))}
-                </div>
+                {selectedGraphCount > 0 && (
+                  <Link
+                    href={graphHref}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 font-mono text-xs font-semibold text-cyan-400 transition-all hover:bg-cyan-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                  >
+                    <span>Open graph ({selectedGraphCount})</span>
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                )}
               </div>
-            )}
-          </section>
-        </div>
+
+              {/* Responsive 3-Column Paper Cards Grid */}
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {results.map((paper) => (
+                  <PaperCard
+                    key={paper.arxiv_id}
+                    paper={paper}
+                    inGraph={normalizedSelectedForGraph.includes(paper.arxiv_id)}
+                    isSaved={savedIds.has(paper.arxiv_id)}
+                    inCompare={selectedForCompare.includes(paper.arxiv_id)}
+                    abstractExpanded={!!expandedAbstracts[paper.arxiv_id]}
+                    summaryState={summaryById[paper.arxiv_id]}
+                    onToggleAbstract={toggleAbstract}
+                    onToggleGraph={toggleGraphSelection}
+                    onToggleCompare={toggleComparePaper}
+                    onToggleSaved={toggleSavedPaper}
+                    onSummarize={summarizePaper}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       </main>
-    </>
+    </div>
   );
 }
