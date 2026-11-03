@@ -549,6 +549,7 @@ function GraphPageContent() {
       .selectAll<SVGCircleElement, SimNode>("circle")
       .data(nodes)
       .join("circle")
+      .attr("class", "graph-node")
       .attr("r", radius)
       .style("fill", (node) => colorScale(primaryCategory(node)))
       .style("stroke", "#051424")
@@ -687,15 +688,15 @@ function GraphPageContent() {
 
     if (!targetId) {
       // Normal state
-      svg.selectAll<SVGCircleElement, SimNode>("circle")
+      svg.selectAll<SVGCircleElement, SimNode>("g.nodes circle")
         .style("stroke", "#051424")
         .style("stroke-width", 2.5)
         .style("opacity", 1);
 
-      svg.selectAll<SVGLineElement, SimLink>("line")
+      svg.selectAll<SVGLineElement, SimLink>("g.edges line")
         .style("opacity", 1);
 
-      svg.selectAll<SVGTextElement, SimNode>("text")
+      svg.selectAll<SVGTextElement, SimNode>("g.labels text")
         .style("opacity", 1);
       return;
     }
@@ -707,25 +708,27 @@ function GraphPageContent() {
       if (edge.target === targetId) connectedNodeIds.add(edge.source);
     }
 
-    svg.selectAll<SVGCircleElement, SimNode>("circle")
-      .style("stroke", (node) => (node.id === targetId ? "#22d3ee" : connectedNodeIds.has(node.id) ? "#38bdf8" : "#051424"))
-      .style("stroke-width", (node) => (node.id === targetId ? 4 : connectedNodeIds.has(node.id) ? 2.5 : 1.5))
-      .style("opacity", (node) => (connectedNodeIds.has(node.id) ? 1 : 0.35));
+    svg.selectAll<SVGCircleElement, SimNode>("g.nodes circle")
+      .style("stroke", (node) => (!node ? "#051424" : node.id === targetId ? "#22d3ee" : connectedNodeIds.has(node.id) ? "#38bdf8" : "#051424"))
+      .style("stroke-width", (node) => (!node ? 2.5 : node.id === targetId ? 4 : connectedNodeIds.has(node.id) ? 2.5 : 1.5))
+      .style("opacity", (node) => (!node || connectedNodeIds.has(node.id) ? 1 : 0.35));
 
-    svg.selectAll<SVGLineElement, SimLink>("line")
+    svg.selectAll<SVGLineElement, SimLink>("g.edges line")
       .style("opacity", (link) => {
-        const s = typeof link.source === "object" ? (link.source as SimNode).id : link.source;
-        const t = typeof link.target === "object" ? (link.target as SimNode).id : link.target;
+        if (!link) return 1;
+        const s = typeof link.source === "object" ? (link.source as SimNode)?.id : link.source;
+        const t = typeof link.target === "object" ? (link.target as SimNode)?.id : link.target;
         return s === targetId || t === targetId ? 1 : 0.12;
       })
       .style("stroke-width", (link) => {
-        const s = typeof link.source === "object" ? (link.source as SimNode).id : link.source;
-        const t = typeof link.target === "object" ? (link.target as SimNode).id : link.target;
+        if (!link) return 1.8;
+        const s = typeof link.source === "object" ? (link.source as SimNode)?.id : link.source;
+        const t = typeof link.target === "object" ? (link.target as SimNode)?.id : link.target;
         return s === targetId || t === targetId ? 3.5 : 1.8;
       });
 
-    svg.selectAll<SVGTextElement, SimNode>("text")
-      .style("opacity", (node) => (connectedNodeIds.has(node.id) ? 1 : 0.35));
+    svg.selectAll<SVGTextElement, SimNode>("g.labels text")
+      .style("opacity", (node) => (!node || connectedNodeIds.has(node.id) ? 1 : 0.35));
   }, [selectedNodeId, hoveredNodeId, visibleEdges]);
 
   // ── Fetch paper details on node click ──────────────────────────────────
