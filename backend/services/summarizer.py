@@ -10,7 +10,7 @@ from groq import Groq
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+_DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
 _GROQ_CLIENT: Groq | None = None
 _CACHED_KEY: str | None = None
 
