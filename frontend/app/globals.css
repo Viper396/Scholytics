@@ -2,40 +2,40 @@
 
 /* ============================================================
    Design System Tokens — Scholytics
-   A refined, high-contrast dark navy research workspace.
-   Palette: Near-black background, deep-navy surfaces, pale readable text,
-   muted blue secondary text, and restrained cyan/turquoise accents.
+   Palette: Near-black background #07111d, navy surfaces #101e30,
+   input/raised #14263a, subtle blue-gray border #294058,
+   main text #eaf2f8, secondary text #a7bacd, turquoise #24c6d8.
    ============================================================ */
 :root {
   /* Surfaces & Backgrounds */
-  --bg-page: #051424;
-  --bg-surface: #0c1a2e;
-  --bg-surface-raised: #11233d;
-  --bg-surface-hover: #162c4b;
-  --bg-input: #071526;
-  --bg-card: #0b1a2d;
+  --bg-page: #07111d;
+  --bg-surface: #101e30;
+  --bg-surface-raised: #14263a;
+  --bg-surface-hover: #192e47;
+  --bg-input: #0a1626;
+  --bg-card: #101e30;
 
   /* Borders */
-  --border-subtle: #152a47;
-  --border-default: #1d3658;
-  --border-hover: #2b4f7c;
-  --border-accent: #0284c7;
-  --border-focus: #22d3ee;
+  --border-subtle: #1c2e44;
+  --border-default: #294058;
+  --border-hover: #3d5a7a;
+  --border-accent: #177d9c;
+  --border-focus: #24c6d8;
 
   /* Text & Contrast (WCAG AA Compliant) */
-  --text-primary: #f0f5fc;
-  --text-secondary: #9cb3cf;
-  --text-muted: #829ab8;
-  --text-accent: #22d3ee;
-  --text-accent-hover: #38bdf8;
+  --text-primary: #eaf2f8;
+  --text-secondary: #a7bacd;
+  --text-muted: #738a9f;
+  --text-accent: #24c6d8;
+  --text-accent-hover: #3de0f2;
 
-  /* Restrained Cyan Accent */
-  --cyan-primary: #22d3ee;
-  --cyan-hover: #38bdf8;
-  --cyan-active: #06b6d4;
-  --cyan-subtle: rgba(34, 211, 238, 0.08);
-  --cyan-border: rgba(34, 211, 238, 0.3);
-  --cyan-text-dark: #04121e;
+  /* Restrained Cyan/Turquoise Accent */
+  --cyan-primary: #24c6d8;
+  --cyan-hover: #3de0f2;
+  --cyan-active: #18a8b8;
+  --cyan-subtle: rgba(36, 198, 216, 0.08);
+  --cyan-border: rgba(36, 198, 216, 0.3);
+  --cyan-text-dark: #07111d;
 
   /* Status Colors */
   --success: #34d399;
@@ -68,8 +68,8 @@
   --space-12: 48px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
 
   /* Typography */
@@ -101,15 +101,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Shared responsive container */
+/* Shared responsive container: 1240-1280px max-width, 16px gutters mobile, 24px gutters desktop */
 .page-container {
-  width: min(1360px, calc(100% - 32px));
+  width: min(1280px, calc(100% - 32px));
   margin-inline: auto;
 }
 
 @media (min-width: 640px) {
   .page-container {
-    width: min(1360px, calc(100% - 48px));
+    width: min(1280px, calc(100% - 48px));
   }
 }
 

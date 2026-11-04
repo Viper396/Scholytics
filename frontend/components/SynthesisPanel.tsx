@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 export type SynthesisSource = {
@@ -30,12 +30,12 @@ export type SynthesisPanelProps = {
   synthesisSources: SynthesisSource[];
   synthesisValidation: SynthesisValidation | null;
   copyLabel: string;
-  selectedCompareCount: number;
-  isComparing: boolean;
+  selectedCompareCount?: number;
+  isComparing?: boolean;
   resultsLength: number;
   onGenerateSynthesis: () => void;
   onCancelSynthesis: () => void;
-  onGenerateComparison: () => void;
+  onGenerateComparison?: () => void;
   onCopySynthesis: () => void;
 };
 
@@ -48,306 +48,240 @@ export default function SynthesisPanel({
   synthesisSources,
   synthesisValidation,
   copyLabel,
-  selectedCompareCount,
-  isComparing,
+  selectedCompareCount = 0,
+  isComparing = false,
   resultsLength,
   onGenerateSynthesis,
   onCancelSynthesis,
   onGenerateComparison,
   onCopySynthesis,
 }: SynthesisPanelProps) {
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const paperCountUsed = Math.min(resultsLength, 5);
 
   return (
-    <section
-      className="rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-5 sm:p-6 shadow-md transition-all"
-      aria-label="Research synthesis workbench"
+    <div
+      className="rounded-xl border border-[#294058] bg-[#101e30] p-5 shadow-sm transition-all flex flex-col gap-3.5"
+      aria-label="Research synthesis"
     >
-      {/* Header & Primary Action Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#1d3658]">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs font-semibold text-cyan-400">
-              Topic Synthesis
-            </span>
-            <span className="text-[#607899]" aria-hidden="true">·</span>
-            <span className="text-xs text-[#9cb3cf]">
-              Abstracts from top {paperCountUsed} retrieved papers
-            </span>
-          </div>
-
-          <h3 className="text-base sm:text-lg font-bold tracking-tight text-[#f0f5fc]">
-            Synthesis:{" "}
-            <span className="text-cyan-300 font-semibold">
-              &ldquo;{activeQuery}&rdquo;
-            </span>
-          </h3>
-          <p className="text-xs text-[#9cb3cf]">
-            Synthesises the top {paperCountUsed} results using Groq · abstract-based only
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap self-start lg:self-center">
-          {isSynthesizing && (
-            <button
-              type="button"
-              onClick={onCancelSynthesis}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-              aria-label="Cancel and stop synthesis"
-            >
-              <span aria-hidden="true">■</span>
-              <span>Stop</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onGenerateSynthesis}
-            disabled={isSynthesizing}
-            className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-[#04121e] transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-            aria-label={
-              isSynthesizing ? "Generating synthesis…" : "Generate topic synthesis"
-            }
-          >
-            {isSynthesizing ? (
-              <>
-                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#04121e] border-t-transparent" />
-                <span>Generating…</span>
-              </>
-            ) : (
-              <>
-                <span aria-hidden="true">✦</span>
-                <span>Generate Synthesis</span>
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onGenerateComparison()}
-            disabled={isComparing || resultsLength < 2}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-              selectedCompareCount >= 2
-                ? "border border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
-                : "border border-[#1d3658] bg-[#11233d] text-[#9cb3cf] hover:border-[#2b4f7c] hover:text-[#f0f5fc]"
-            }`}
-            aria-label="Compare selected papers"
-          >
-            <span aria-hidden="true">⇄</span>
-            <span>
-              {isComparing
-                ? "Comparing…"
-                : selectedCompareCount >= 2
-                ? `Compare (${selectedCompareCount})`
-                : "Compare Top 3"}
-            </span>
-          </button>
-        </div>
+      {/* Header */}
+      <div>
+        <h3 className="text-lg font-bold tracking-tight text-[#eaf2f8]">
+          Research synthesis
+        </h3>
+        <p className="text-xs text-[#a7bacd] mt-0.5">
+          Based on the top {paperCountUsed} abstracts
+        </p>
       </div>
 
       {/* Synthesis Error Alert */}
       {synthesisError && (
         <div
-          className="my-3.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs font-medium text-rose-300"
+          className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-300"
           role="alert"
         >
           {synthesisError}
         </div>
       )}
 
-      {/* Streaming / Completed Synthesis Output Area */}
+      {/* Prompt invitation if empty and not synthesizing */}
+      {!synthesisText && !isSynthesizing && !synthesisError && (
+        <p className="text-xs text-[#a7bacd] leading-relaxed">
+          Synthesize key findings, comparative methodology, and consensus across the top retrieved paper abstracts.
+        </p>
+      )}
+
+      {/* Streaming or Completed Markdown Output Area */}
       {(synthesisText || isSynthesizing) && (
-        <div className="mt-4 min-h-[120px] rounded-lg border border-[#1d3658] bg-[#071526] p-4 sm:p-5">
-          <div className="synthesis-prose text-sm leading-relaxed text-[#f0f5fc]">
-            <ReactMarkdown
-              components={{
-                p: ({ children }) => {
-                  return (
-                    <p>
-                      {React.Children.map(children, (child) => {
-                        if (typeof child !== "string") return child;
-                        const parts = child.split(/(\[SOURCE\s+\d+\])/g);
-                        if (parts.length === 1) return child;
-                        return parts.map((part, idx) => {
-                          const match = part.match(/^\[SOURCE\s+(\d+)\]$/);
-                          if (match) {
-                            const num = parseInt(match[1], 10);
-                            const sourceExists = synthesisSources.some(
-                              (s) => s.source_index === num,
-                            );
-                            if (sourceExists) {
-                              return (
-                                <a
-                                  key={idx}
-                                  href={`#source-${num}`}
-                                  className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-xs font-mono font-semibold rounded bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 transition-colors hover:bg-cyan-500/25 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                                  title={`Jump to Grounding Source ${num}`}
-                                  aria-label={`Grounding reference: [SOURCE ${num}]`}
-                                >
-                                  {part}
-                                </a>
-                              );
-                            }
+        <div className="synthesis-prose text-sm leading-relaxed text-[#eaf2f8] space-y-2">
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => {
+                return (
+                  <p className="text-sm leading-relaxed text-[#eaf2f8]">
+                    {React.Children.map(children, (child) => {
+                      if (typeof child !== "string") return child;
+                      const parts = child.split(/(\[SOURCE\s+\d+\]|\[\d+\])/g);
+                      if (parts.length === 1) return child;
+                      return parts.map((part, idx) => {
+                        const sourceMatch =
+                          part.match(/^\[SOURCE\s+(\d+)\]$/) ||
+                          part.match(/^\[(\d+)\]$/);
+                        if (sourceMatch) {
+                          const num = parseInt(sourceMatch[1], 10);
+                          const sourceExists = synthesisSources.some(
+                            (s) => s.source_index === num,
+                          );
+                          if (sourceExists) {
                             return (
-                              <span
+                              <a
                                 key={idx}
-                                className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-xs font-mono font-medium rounded bg-rose-500/10 text-rose-300 border border-rose-500/30"
-                                title={`Unverified citation: ${part}`}
+                                href={`#source-${num}`}
+                                onClick={() => setSourcesOpen(true)}
+                                className="inline-flex items-center px-1 mx-0.5 text-xs font-mono font-bold rounded bg-[#24c6d8]/15 text-[#24c6d8] hover:underline"
+                                title={`Jump to Source ${num}`}
+                                aria-label={`Grounding reference: [SOURCE ${num}]`}
                               >
-                                {part}
-                              </span>
+                                [{num}]
+                              </a>
                             );
                           }
-                          return part;
-                        });
-                      })}
-                    </p>
-                  );
-                },
-              }}
-            >
-              {synthesisText}
-            </ReactMarkdown>
+                          return (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-1 mx-0.5 text-xs font-mono rounded bg-rose-500/10 text-rose-300 border border-rose-500/30"
+                              title={`Unverified citation: ${part}`}
+                            >
+                              {part}
+                            </span>
+                          );
+                        }
+                        return part;
+                      });
+                    })}
+                  </p>
+                );
+              },
+            }}
+          >
+            {synthesisText}
+          </ReactMarkdown>
 
-            {isSynthesizing && (
-              <span
-                className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-cyan-400 align-middle"
-                aria-label="Generating…"
-              />
-            )}
-          </div>
+          {isSynthesizing && (
+            <span
+              className="ml-1 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-[#24c6d8] align-middle"
+              aria-label="Generating…"
+            />
+          )}
         </div>
       )}
 
-      {/* Grounding Sources Matrix List */}
-      {synthesisSources.length > 0 && (synthesisText || isSynthesizing) && (
-        <div className="mt-4 rounded-lg border border-[#1d3658] bg-[#071526] p-4 text-xs">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#1d3658] pb-2.5">
-            <span className="font-mono text-xs font-bold text-cyan-400">
-              Grounding Sources ({synthesisSources.length} retrieved papers)
-            </span>
-
-            {isSynthesisComplete && synthesisValidation && (
-              synthesisValidation.has_hallucinations ? (
-                <span className="rounded border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-300">
-                  ⚠ Unverified Citations: [SOURCE {synthesisValidation.invalid_citations.join(", ")}]
-                </span>
-              ) : (
-                <span className="rounded border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                  ✓ Citations Verified ({synthesisValidation.cited_sources.length} sources cited)
-                </span>
-              )
-            )}
-          </div>
-
-          <ol
-            className="grid grid-cols-1 gap-2.5 sm:grid-cols-2"
-            aria-label="Grounding sources"
+      {/* Sources Toggle Button */}
+      {synthesisSources.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setSourcesOpen(!sourcesOpen)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[#24c6d8] hover:text-[#3de0f2] hover:underline"
           >
-            {synthesisSources.map((source) => {
-              const isCited = synthesisValidation?.cited_sources.includes(source.source_index);
-              return (
-                <li
-                  key={source.arxiv_id}
-                  id={`source-${source.source_index}`}
-                  className={`flex flex-col justify-between rounded-lg p-3 transition-colors list-none border scroll-mt-24 ${
-                    isCited
-                      ? "border-cyan-500/40 bg-cyan-500/5"
-                      : "border-[#1d3658] bg-[#0c1a2e]"
-                  }`}
-                >
-                  <div>
-                    <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-xs font-bold ${
-                          isCited
-                            ? "bg-cyan-400 text-[#04121e]"
-                            : "bg-[#11233d] text-[#9cb3cf] border border-[#1d3658]"
-                        }`}
-                      >
-                        SOURCE {source.source_index}
-                      </span>
-                      {isCited && (
-                        <span className="text-xs font-semibold text-cyan-400">
-                          ✓ Cited
-                        </span>
-                      )}
-                    </div>
-                    <a
-                      href={source.entry_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="line-clamp-2 font-semibold text-sm text-[#f0f5fc] hover:text-cyan-300 hover:underline leading-snug"
-                    >
-                      {source.title}
-                    </a>
-                  </div>
+            <span>
+              {sourcesOpen ? "Hide" : "View"} {synthesisSources.length} sources
+            </span>
+            <span aria-hidden="true">{sourcesOpen ? "↑" : "→"}</span>
+          </button>
 
-                  <div className="mt-2.5 flex items-center justify-between text-xs border-t border-[#1d3658] pt-2 text-[#9cb3cf]">
-                    <span className="truncate max-w-[170px]">
-                      {source.authors.length > 0
-                        ? `${source.authors[0]}${source.authors.length > 1 ? " et al." : ""}`
-                        : source.arxiv_id}
-                    </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <a
-                        href={`#paper-${source.arxiv_id}`}
-                        className="font-medium text-[#9cb3cf] hover:text-cyan-300 hover:underline transition-colors"
-                        aria-label={`Jump to ${source.title} in results`}
-                      >
-                        Jump ↓
-                      </a>
+          {/* Grounding Sources List */}
+          <div
+            className={`mt-3 space-y-2 rounded-lg border border-[#294058] bg-[#14263a] p-3 text-xs ${
+              sourcesOpen ? "block" : "hidden sm:block"
+            }`}
+          >
+            <div className="flex items-center justify-between pb-1.5 border-b border-[#294058]">
+              <span className="font-mono text-xs font-bold text-[#24c6d8]">
+                Grounding Sources ({synthesisSources.length} retrieved papers)
+              </span>
+              {synthesisValidation && (
+                synthesisValidation.has_hallucinations ? (
+                  <span className="text-[11px] font-semibold text-rose-300">
+                    ⚠ Unverified Citations: [SOURCE {synthesisValidation.invalid_citations.join(", ")}]
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-emerald-400">
+                    ✓ Citations Verified ({synthesisValidation.cited_sources.length} sources cited)
+                  </span>
+                )
+              )}
+            </div>
+
+            <ol className="space-y-2">
+              {synthesisSources.map((source) => {
+                const isCited = synthesisValidation?.cited_sources.includes(source.source_index);
+                return (
+                  <li
+                    key={source.arxiv_id}
+                    id={`source-${source.source_index}`}
+                    className="rounded border border-[#294058]/80 bg-[#101e30] p-2"
+                  >
+                    <div className="flex items-start justify-between gap-1.5">
+                      <span className="rounded bg-[#14263a] px-1.5 py-0.2 font-mono text-[10px] font-bold text-[#24c6d8] border border-[#294058]">
+                        [{source.source_index}]
+                      </span>
                       <a
                         href={source.entry_url}
                         target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-xs text-cyan-400 hover:underline"
-                        aria-label={`Open arXiv abstract for ${source.title}`}
+                        rel="noreferrer"
+                        className="flex-1 font-medium text-[#eaf2f8] hover:text-[#24c6d8] hover:underline line-clamp-1"
                       >
-                        arXiv ↗
+                        {source.title}
                       </a>
-                      {source.pdf_url && (
-                        <a
-                          href={source.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-xs text-cyan-300 hover:underline"
-                          aria-label={`Open PDF for ${source.title}`}
-                        >
-                          PDF ↗
-                        </a>
-                      )}
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-
-          <p className="mt-2.5 text-xs text-[#829ab8]">
-            ⚠ Grounding: Citations are cross-referenced directly against the retrieved candidate papers.
-          </p>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-[#a7bacd]">
+                      <span className="truncate max-w-[140px]">
+                        {source.authors[0] || "Unknown"}
+                      </span>
+                      <div className="flex items-center gap-2 font-mono">
+                        <a
+                          href={`#paper-${source.arxiv_id}`}
+                          className="text-[#a7bacd] hover:text-[#24c6d8] hover:underline"
+                        >
+                          Jump ↓
+                        </a>
+                        <a
+                          href={source.entry_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[#24c6d8] hover:underline"
+                        >
+                          arXiv ↗
+                        </a>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         </div>
       )}
 
-      {/* Completion Footer */}
-      {isSynthesisComplete && synthesisText && (
-        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1d3658]">
-          <p className="text-xs text-[#829ab8]">
-            Generated from author abstracts only — verify claims in original papers.
-          </p>
+      {/* Action Controls: Generate / Stop / Regenerate / Copy */}
+      <div className="mt-1 flex items-center gap-2 pt-2 border-t border-[#294058]/60 flex-wrap">
+        {isSynthesizing ? (
+          <button
+            type="button"
+            onClick={onCancelSynthesis}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            aria-label="Cancel and stop synthesis"
+          >
+            <span aria-hidden="true">■</span>
+            <span>Stop</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onGenerateSynthesis}
+            disabled={isSynthesizing || resultsLength === 0}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#24c6d8] px-4 py-2 text-xs font-bold text-[#07111d] transition-colors hover:bg-[#3de0f2] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24c6d8]"
+            aria-label="Generate topic synthesis"
+          >
+            <span>{synthesisText ? "Regenerate" : "Generate synthesis"}</span>
+          </button>
+        )}
+
+        {isSynthesisComplete && synthesisText && (
           <button
             type="button"
             onClick={onCopySynthesis}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1d3658] bg-[#11233d] px-3 py-1.5 text-xs font-semibold text-[#f0f5fc] transition-colors hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="inline-flex items-center gap-1 rounded-lg border border-[#294058] bg-[#14263a] px-3 py-2 text-xs font-semibold text-[#eaf2f8] transition-colors hover:border-[#24c6d8] hover:text-[#24c6d8]"
             aria-label="Copy synthesis to clipboard"
           >
-            <span aria-hidden="true">📋</span>
+            <svg className="h-3.5 w-3.5 text-[#a7bacd]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+            </svg>
             <span>{copyLabel}</span>
           </button>
-        </div>
-      )}
-    </section>
+        )}
+      </div>
+    </div>
   );
 }
