@@ -67,9 +67,10 @@ export default function Nav({ selectedIds, savedCount, onOpenSaved }: NavProps) 
           <nav className="flex items-center gap-1" aria-label="Main Navigation">
             <Link
               href="/"
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              aria-current={isDiscover ? "page" : undefined}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 isDiscover
-                  ? "bg-[#11233d] text-cyan-400 border border-[#1d3658]"
+                  ? "bg-[#11233d] text-cyan-400 border border-[#1d3658] shadow-sm"
                   : "text-[#9cb3cf] hover:bg-[#11233d]/70 hover:text-[#f0f5fc]"
               }`}
             >
@@ -77,9 +78,10 @@ export default function Nav({ selectedIds, savedCount, onOpenSaved }: NavProps) 
             </Link>
             <Link
               href={graphHref}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              aria-current={isGraph ? "page" : undefined}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 isGraph
-                  ? "bg-[#11233d] text-cyan-400 border border-[#1d3658]"
+                  ? "bg-[#11233d] text-cyan-400 border border-[#1d3658] shadow-sm"
                   : "text-[#9cb3cf] hover:bg-[#11233d]/70 hover:text-[#f0f5fc]"
               }`}
             >

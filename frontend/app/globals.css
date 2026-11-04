@@ -22,10 +22,10 @@
   --border-accent: #0284c7;
   --border-focus: #22d3ee;
 
-  /* Text & Contrast */
+  /* Text & Contrast (WCAG AA Compliant) */
   --text-primary: #f0f5fc;
   --text-secondary: #9cb3cf;
-  --text-muted: #607899;
+  --text-muted: #829ab8;
   --text-accent: #22d3ee;
   --text-accent-hover: #38bdf8;
 
@@ -152,6 +152,30 @@ body {
    ============================================================ */
 input[type="range"] {
   accent-color: var(--cyan-primary);
+}
+
+/* ============================================================
+   Semantic Surface & Interaction Utilities
+   ============================================================ */
+.surface-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+}
+
+.surface-raised {
+  background-color: var(--bg-surface-raised);
+  border: 1px solid var(--border-default);
+}
+
+.surface-subtle {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-default);
+}
+
+.transition-ui {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 160ms;
 }
 
 /* ============================================================

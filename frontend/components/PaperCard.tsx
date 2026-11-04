@@ -77,7 +77,7 @@ export default function PaperCard({
   return (
     <article
       id={`paper-${paper.arxiv_id}`}
-      className={`group relative flex flex-col justify-between rounded-xl p-5 sm:p-6 transition-all duration-200 border scroll-mt-20 ${
+      className={`group relative flex flex-col justify-between rounded-xl p-5 sm:p-6 transition-all duration-150 border scroll-mt-24 ${
         inGraph
           ? "border-cyan-400/50 bg-[#0c1d33] shadow-[0_4px_20px_rgba(34,211,238,0.1)]"
           : "border-[#1d3658] bg-[#0c1a2e] hover:border-[#2b4f7c] hover:bg-[#0f213a] shadow-sm hover:shadow-md"
@@ -105,7 +105,7 @@ export default function PaperCard({
               <button
                 type="button"
                 onClick={() => setAuthorsExpanded(true)}
-                className="ml-1 text-cyan-400 hover:underline"
+                className="ml-1 text-cyan-400 hover:underline font-medium"
               >
                 +{paper.authors.length - 4} more
               </button>
@@ -114,14 +114,14 @@ export default function PaperCard({
               <button
                 type="button"
                 onClick={() => setAuthorsExpanded(false)}
-                className="ml-1 text-[#607899] hover:underline"
+                className="ml-1 text-[#829ab8] hover:underline"
               >
                 (show less)
               </button>
             )}
           </span>
-          <span className="text-[#607899]" aria-hidden="true">·</span>
-          <time dateTime={paper.published} className="text-[#607899] shrink-0">
+          <span className="text-[#829ab8]" aria-hidden="true">·</span>
+          <time dateTime={paper.published} className="text-[#829ab8] shrink-0">
             {formatDate(paper.published)}
           </time>
         </div>
@@ -132,7 +132,7 @@ export default function PaperCard({
             {paper.categories.map((category, idx) => (
               <span
                 key={`${paper.arxiv_id}-${category}`}
-                className={`rounded px-2 py-0.5 font-mono text-[11px] font-medium ${
+                className={`rounded px-2 py-0.5 font-mono text-xs font-medium ${
                   idx === 0
                     ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
                     : "bg-[#11233d] text-[#9cb3cf] border border-[#1d3658]"
@@ -147,7 +147,7 @@ export default function PaperCard({
             href={arxivUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded border border-[#1d3658] bg-[#11233d] px-2 py-0.5 font-mono text-[11px] font-medium text-cyan-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+            className="rounded border border-[#1d3658] bg-[#11233d] px-2 py-0.5 font-mono text-xs font-medium text-cyan-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
             aria-label={`arXiv abstract for ${paper.arxiv_id}`}
             title="Open abstract page on arXiv"
           >
@@ -156,8 +156,8 @@ export default function PaperCard({
         </div>
 
         {/* 4. Concise Abstract Preview with Expansion Toggle */}
-        <div className="text-xs sm:text-sm text-[#9cb3cf] leading-relaxed pt-1">
-          <p className={abstractExpanded ? "leading-relaxed" : "line-clamp-3 leading-relaxed"}>
+        <div className="text-sm text-[#9cb3cf] leading-relaxed pt-1">
+          <p className={abstractExpanded ? "leading-relaxed text-[#f0f5fc]" : "line-clamp-3 leading-relaxed"}>
             {paper.abstract}
           </p>
           {paper.abstract.length > 180 && (
@@ -177,17 +177,17 @@ export default function PaperCard({
         {paper.relevance_score !== null && !paper.ranking_degraded && (
           <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-2.5 my-1">
             <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#9cb3cf]">
+              <span className="flex items-center gap-1.5 font-medium text-[#9cb3cf]">
                 <span>Semantic relevance</span>
                 <span
-                  className="cursor-help rounded bg-[#11233d] px-1 text-[10px] text-[#607899] border border-[#1d3658]"
+                  className="cursor-help rounded bg-[#11233d] px-1 text-xs text-[#829ab8] border border-[#1d3658]"
                   title="Vector cosine similarity to search query text. Reflects query semantic relevance, not paper quality or citation impact."
                   aria-label="Cosine similarity to query text (retrieval relevance, not paper quality)"
                 >
                   ⓘ
                 </span>
               </span>
-              <span className="font-mono text-xs font-semibold text-cyan-400">
+              <span className="font-mono text-xs font-bold text-cyan-400">
                 {scorePercent}%
               </span>
             </div>
@@ -216,7 +216,7 @@ export default function PaperCard({
             type="button"
             onClick={() => onSummarize(paper.arxiv_id)}
             disabled={summaryState?.loading}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-400/15 border border-cyan-400/40 px-3 py-1.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-400/25 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-400 px-3.5 py-1.5 text-xs font-bold text-[#04121e] transition-colors hover:bg-cyan-300 shadow-sm disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label={
               summaryState?.loading
                 ? "Generating summary…"
@@ -225,12 +225,12 @@ export default function PaperCard({
           >
             {summaryState?.loading ? (
               <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#04121e] border-t-transparent" />
                 <span>Summarizing…</span>
               </>
             ) : (
               <>
-                <span aria-hidden="true" className="text-cyan-400">✦</span>
+                <span aria-hidden="true">✦</span>
                 <span>Summarize</span>
               </>
             )}
@@ -300,7 +300,7 @@ export default function PaperCard({
             href={arxivUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-2 py-1 font-mono text-[11px] font-medium text-[#9cb3cf] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-2 py-1 font-mono text-xs font-medium text-[#9cb3cf] transition-colors hover:border-cyan-500/40 hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
             aria-label={`Open arXiv abstract page for: ${paper.title}`}
             title="Open abstract on arXiv"
           >
@@ -310,7 +310,7 @@ export default function PaperCard({
             href={pdfUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-2 py-1 font-mono text-[11px] font-medium text-cyan-400 transition-colors hover:border-cyan-400 hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+            className="rounded-lg border border-[#1d3658] bg-[#11233d] px-2 py-1 font-mono text-xs font-medium text-cyan-400 transition-colors hover:border-cyan-400 hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
             aria-label={`Open PDF for: ${paper.title}`}
             title="Open direct paper PDF"
           >
@@ -357,18 +357,18 @@ export default function PaperCard({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-cyan-400">✦</span>
-                  <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                  <p className="font-mono text-xs font-bold uppercase tracking-wider text-cyan-400">
                     AI Abstract Summary
                   </p>
                 </div>
-                <span className="rounded border border-[#1d3658] bg-[#11233d] px-1.5 py-0.2 font-mono text-[10px] text-[#9cb3cf]">
+                <span className="rounded border border-[#1d3658] bg-[#11233d] px-2 py-0.5 font-mono text-xs text-[#9cb3cf]">
                   Groq Llama 3.1 8B
                 </span>
               </div>
-              <p className="text-xs text-[#f0f5fc] leading-relaxed">
+              <p className="text-sm text-[#f0f5fc] leading-relaxed">
                 {summaryState.summary}
               </p>
-              <p className="text-[11px] text-[#607899]">
+              <p className="text-xs text-[#829ab8]">
                 ⚠ Grounded on title &amp; abstract only — not full paper text.
               </p>
             </div>

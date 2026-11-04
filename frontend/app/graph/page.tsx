@@ -158,6 +158,11 @@ function GraphPageContent() {
   const [showCoAuthorEdges, setShowCoAuthorEdges] = useState(true);
   const [showSameFieldEdges, setShowSameFieldEdges] = useState(true);
 
+  const showCoAuthorEdgesRef = useRef(showCoAuthorEdges);
+  showCoAuthorEdgesRef.current = showCoAuthorEdges;
+  const showSameFieldEdgesRef = useRef(showSameFieldEdges);
+  showSameFieldEdgesRef.current = showSameFieldEdges;
+
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [edgeTooltip, setEdgeTooltip] = useState<EdgeTooltipState | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -377,10 +382,17 @@ function GraphPageContent() {
       .scale(clampedScale)
       .translate(-centerX, -centerY);
 
-    if (duration > 0) {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const effectiveDuration = prefersReducedMotion ? 0 : duration;
+
+    if (effectiveDuration > 0) {
       d3.select(svgElement)
         .transition()
-        .duration(duration)
+        .duration(effectiveDuration)
         .call(zoomBehavior.transform, transform);
     } else {
       d3.select(svgElement).call(zoomBehavior.transform, transform);
@@ -400,7 +412,8 @@ function GraphPageContent() {
     const isMediumGraph = graphData.nodes.length <= 10;
 
     const nodes: SimNode[] = graphData.nodes.map((node) => ({ ...node }));
-    const links: SimLink[] = visibleEdges.map((edge) => ({
+    // All edges are bound to simulation links; visibility toggles adjust styles/forces without rebuilding
+    const allLinks: SimLink[] = (graphData.edges || []).map((edge) => ({
       source: edge.source,
       target: edge.target,
       type: edge.type,
@@ -436,8 +449,13 @@ function GraphPageContent() {
     // Edge lines
     const linkSelection = edgeLayer
       .selectAll<SVGLineElement, SimLink>("line")
-      .data(links)
+      .data(allLinks)
       .join("line")
+      .style("display", (link) => {
+        if (link.type === "co-author" && !showCoAuthorEdgesRef.current) return "none";
+        if (link.type === "same-field" && !showSameFieldEdgesRef.current) return "none";
+        return null;
+      })
       .style("stroke", (link) => EDGE_COLORS[link.type])
       .style("stroke-width", (link) =>
         link.type === "co-author" ? 2 + Math.min(2, link.weight - 1) : 1.5,
@@ -497,7 +515,7 @@ function GraphPageContent() {
     const dragBehavior = d3
       .drag<SVGCircleElement, SimNode>()
       .on("start", (event, node) => {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
+        if (!event.active) simulation.alphaTarget(0.25).restart();
         node.fx = node.x;
         node.fy = node.y;
       })
@@ -574,7 +592,7 @@ function GraphPageContent() {
       .force(
         "link",
         d3
-          .forceLink<SimNode, SimLink>(links)
+          .forceLink<SimNode, SimLink>(allLinks)
           .id((node) => node.id)
           .distance(isSmallGraph ? 210 : isMediumGraph ? 160 : 120)
           .strength(0.4),
@@ -610,9 +628,14 @@ function GraphPageContent() {
         .attr("x", (node) => (node.x ?? 0) + radius(node) + 6)
         .attr("y", (node) => (node.y ?? 0) + 4);
 
-      if (!hasAutoFittedRef.current && (tickCount >= 30 || simulation.alpha() < 0.1)) {
+      if (!hasAutoFittedRef.current && (tickCount >= 25 || simulation.alpha() < 0.12)) {
         hasAutoFittedRef.current = true;
         zoomToFit(70, 300);
+      }
+
+      // Settle physics and stop simulation once layout stabilizes (eliminates background CPU usage)
+      if (simulation.alpha() < 0.015 || tickCount >= 160) {
+        simulation.stop();
       }
     });
 
@@ -641,14 +664,25 @@ function GraphPageContent() {
       if (simulationRef.current === simulation) simulationRef.current = null;
       zoomBehaviorRef.current = null;
     };
-  }, [graphData, visibleEdges, zoomToFit]);
+  }, [graphData, zoomToFit]);
 
-  // Highlight selected and hovered nodes in SVG (lightweight without simulation restart)
+  // Update edge visibility and node/edge highlighting without rebuilding SVG or restarting simulation
   useEffect(() => {
     const svgElement = svgRef.current;
     if (!svgElement) return;
 
     const svg = d3.select(svgElement);
+
+    // 1. Instantly update edge visibility based on active filter toggles
+    svg.selectAll<SVGLineElement, SimLink>("g.edges line")
+      .style("display", (link) => {
+        if (!link) return null;
+        if (link.type === "co-author" && !showCoAuthorEdges) return "none";
+        if (link.type === "same-field" && !showSameFieldEdges) return "none";
+        return null;
+      });
+
+    // 2. Highlight selected and hovered nodes in SVG
     const targetId = selectedNodeId || hoveredNodeId;
 
     if (!targetId) {
@@ -692,7 +726,7 @@ function GraphPageContent() {
 
     svg.selectAll<SVGTextElement, SimNode>("g.labels text")
       .style("opacity", (node) => (!node || connectedNodeIds.has(node.id) ? 1 : 0.35));
-  }, [selectedNodeId, hoveredNodeId, visibleEdges]);
+  }, [selectedNodeId, hoveredNodeId, visibleEdges, showCoAuthorEdges, showSameFieldEdges]);
 
   // ── Fetch paper details on node click ──────────────────────────────────
 
@@ -735,7 +769,15 @@ function GraphPageContent() {
     const svgElement = svgRef.current;
     const zoomBehavior = zoomBehaviorRef.current;
     if (!svgElement || !zoomBehavior) return;
-    d3.select(svgElement).transition().duration(200).call(zoomBehavior.scaleBy, factor);
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) {
+      d3.select(svgElement).call(zoomBehavior.scaleBy, factor);
+    } else {
+      d3.select(svgElement).transition().duration(180).call(zoomBehavior.scaleBy, factor);
+    }
   }, []);
 
   const handleResetLayout = useCallback(() => {
@@ -756,10 +798,18 @@ function GraphPageContent() {
     const svgElement = svgRef.current;
     const zoomBehavior = zoomBehaviorRef.current;
     if (svgElement && zoomBehavior) {
-      d3.select(svgElement)
-        .transition()
-        .duration(200)
-        .call(zoomBehavior.transform, d3.zoomIdentity);
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReducedMotion) {
+        d3.select(svgElement).call(zoomBehavior.transform, d3.zoomIdentity);
+      } else {
+        d3.select(svgElement)
+          .transition()
+          .duration(180)
+          .call(zoomBehavior.transform, d3.zoomIdentity);
+      }
     }
   }, []);
 
@@ -1308,8 +1358,8 @@ function GraphPageContent() {
                               style={{ backgroundColor: color }}
                               aria-hidden="true"
                             />
-                            <span className="font-mono text-[#9cb3cf] text-[11px]">{cat}</span>
-                            <span className="rounded bg-[#11233d] px-1 text-[10px] font-mono text-[#607899]">
+                            <span className="font-mono text-[#9cb3cf] text-xs font-medium">{cat}</span>
+                            <span className="rounded bg-[#11233d] px-1.5 py-0.5 text-xs font-mono text-[#829ab8]">
                               {count}
                             </span>
                           </div>
@@ -1339,7 +1389,7 @@ function GraphPageContent() {
                         <span><strong className="text-[#f0f5fc]">Dashed grey:</strong> Shared arXiv field</span>
                       </span>
                     </div>
-                    <span className="text-[11px] text-[#9cb3cf]">
+                    <span className="text-xs text-[#9cb3cf]">
                       Relationships show collaboration &amp; field similarity — NOT citations
                     </span>
                   </div>
@@ -1350,7 +1400,7 @@ function GraphPageContent() {
             {/* Details Sidebar (4 cols on lg/xl) */}
             <aside
               ref={detailsAsideRef}
-              className="lg:col-span-4 rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-5 shadow-sm flex flex-col gap-3.5 lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] overflow-y-auto"
+              className="lg:col-span-4 rounded-xl border border-[#1d3658] bg-[#0c1a2e] p-5 shadow-sm flex flex-col gap-3.5 lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] overflow-y-auto scroll-mt-24"
               aria-label="Selected paper details"
             >
               <div className="flex items-center justify-between border-b border-[#1d3658] pb-2.5">
@@ -1400,7 +1450,7 @@ function GraphPageContent() {
                               <span className="font-medium text-[#f0f5fc] line-clamp-1">
                                 {node.title}
                               </span>
-                              <div className="flex items-center justify-between font-mono text-[10px] text-[#607899]">
+                              <div className="flex items-center justify-between font-mono text-xs text-[#829ab8]">
                                 <span>arXiv:{node.id}</span>
                                 <span className="text-cyan-400">{primaryCategory(node)}</span>
                               </div>
@@ -1427,7 +1477,7 @@ function GraphPageContent() {
                       </span>
                     </div>
 
-                    <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-400">
+                    <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-400">
                       {Math.round(selectedNode.relevance_score * 100)}% Sim
                     </span>
                   </div>
@@ -1440,7 +1490,7 @@ function GraphPageContent() {
                     <p className="mt-1.5 text-xs text-[#9cb3cf] line-clamp-2">
                       {selectedNode.authors.join(", ") || "Unknown authors"}
                     </p>
-                    <p className="mt-1 text-[11px] text-[#607899]">
+                    <p className="mt-1 text-xs text-[#829ab8]">
                       Published: {formatDate(selectedNode.published)}
                     </p>
                   </div>
@@ -1526,7 +1576,7 @@ function GraphPageContent() {
                         <span className="font-mono text-xs font-semibold text-cyan-400">
                           Connected in Graph ({connectedPapers.length})
                         </span>
-                        <span className="text-[10px] text-[#607899] italic">
+                        <span className="text-xs text-[#829ab8] italic">
                           Non-citation
                         </span>
                       </div>
@@ -1545,7 +1595,7 @@ function GraphPageContent() {
                               {paper.title}
                             </button>
                             <span
-                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
+                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-xs font-semibold ${
                                 edgeType === "co-author"
                                   ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
                                   : "bg-[#11233d] text-[#9cb3cf] border border-[#1d3658]"
@@ -1581,7 +1631,7 @@ function GraphPageContent() {
                         <span className="mb-1.5 block font-mono text-xs font-semibold text-cyan-400">
                           Abstract
                         </span>
-                        <p className="text-xs text-[#9cb3cf] leading-relaxed max-h-44 overflow-y-auto pr-1">
+                        <p className="text-xs sm:text-sm text-[#9cb3cf] leading-relaxed max-h-44 overflow-y-auto pr-1">
                           {selectedDetails?.abstract ?? "Abstract unavailable."}
                         </p>
                       </>
@@ -1618,14 +1668,14 @@ function GraphPageContent() {
                         <span className="font-mono text-xs font-semibold text-cyan-400">
                           AI Summary
                         </span>
-                        <span className="rounded border border-[#1d3658] bg-[#11233d] px-1.5 py-0.2 font-mono text-[10px] text-[#9cb3cf]">
+                        <span className="rounded border border-[#1d3658] bg-[#11233d] px-1.5 py-0.5 font-mono text-xs text-[#9cb3cf]">
                           Groq Llama 3.1 8B
                         </span>
                       </div>
-                      <p className="text-xs text-[#f0f5fc] leading-relaxed">
+                      <p className="text-xs sm:text-sm text-[#f0f5fc] leading-relaxed">
                         {summaryText}
                       </p>
-                      <p className="text-[10px] text-[#607899]">
+                      <p className="text-xs text-[#829ab8]">
                         ⚠ Grounded on title &amp; abstract only — not full paper text.
                       </p>
                     </div>

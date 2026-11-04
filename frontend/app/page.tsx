@@ -142,6 +142,14 @@ function ReadingListPanel({
   onClear: () => void;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <aside
       role="dialog"
@@ -158,7 +166,7 @@ function ReadingListPanel({
             <h2 className="text-sm font-bold text-[#f0f5fc]">
               Saved Papers ({list.length})
             </h2>
-            <p className="text-[11px] text-[#607899]">Browser reading list</p>
+            <p className="text-xs text-[#829ab8]">Browser reading list</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -191,7 +199,7 @@ function ReadingListPanel({
           <p className="text-sm font-medium text-[#f0f5fc]">
             No saved papers yet.
           </p>
-          <p className="mt-1 max-w-xs text-xs text-[#607899]">
+          <p className="mt-1 max-w-xs text-xs text-[#829ab8]">
             Click &ldquo;Save&rdquo; on any search result to build your reading list.
           </p>
         </div>
@@ -207,29 +215,29 @@ function ReadingListPanel({
                   href={item.entry_url || `https://arxiv.org/abs/${item.arxiv_id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-xs text-[#f0f5fc] hover:text-cyan-300 hover:underline leading-snug"
+                  className="font-semibold text-xs text-[#f0f5fc] hover:text-cyan-300 hover:underline leading-snug"
                 >
                   {item.title}
                 </a>
                 <button
                   type="button"
                   onClick={() => onRemove(item.arxiv_id)}
-                  className="shrink-0 p-1 text-xs text-[#607899] transition-colors hover:text-rose-400"
+                  className="shrink-0 p-1 text-xs text-[#829ab8] transition-colors hover:text-rose-400"
                   aria-label={`Remove ${item.title} from reading list`}
                 >
                   ✕
                 </button>
               </div>
-              <p className="mt-1 text-[11px] text-[#9cb3cf]">
+              <p className="mt-1 text-xs text-[#9cb3cf]">
                 {item.authors.slice(0, 2).join(", ")}
                 {item.authors.length > 2 && " et al."}
               </p>
-              <div className="mt-2.5 flex items-center justify-between border-t border-[#1d3658] pt-2 text-[11px]">
+              <div className="mt-2.5 flex items-center justify-between border-t border-[#1d3658] pt-2 text-xs">
                 <a
                   href={item.entry_url || `https://arxiv.org/abs/${item.arxiv_id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-mono text-[10px] text-cyan-400 hover:underline"
+                  className="font-mono text-xs text-cyan-400 hover:underline"
                 >
                   arXiv:{item.arxiv_id}
                 </a>
@@ -237,7 +245,7 @@ function ReadingListPanel({
                   href={item.pdf_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-mono text-[10px] font-semibold text-cyan-300 hover:underline"
+                  className="font-mono text-xs font-semibold text-cyan-300 hover:underline"
                 >
                   PDF ↗
                 </a>
@@ -247,7 +255,7 @@ function ReadingListPanel({
         </ul>
       )}
 
-      <p className="mt-3 border-t border-[#1d3658] pt-3 text-center text-[11px] text-[#607899]">
+      <p className="mt-3 border-t border-[#1d3658] pt-3 text-center text-xs text-[#829ab8]">
         Saved locally in this browser.
       </p>
     </aside>
@@ -970,7 +978,7 @@ export default function Home() {
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f5fc]">
                 Discover Research
               </h1>
-              <p className="mt-1.5 text-xs sm:text-sm text-[#9cb3cf]">
+              <p className="mt-1.5 text-sm text-[#9cb3cf]">
                 Search for any research topic across arXiv papers with vector semantic retrieval, neural synthesis, and relationship mapping.
               </p>
             </div>
@@ -980,12 +988,12 @@ export default function Home() {
                 <span className="text-xs font-mono font-semibold text-cyan-400">
                   Search Workbench
                 </span>
-                <span className="text-[#607899]" aria-hidden="true">·</span>
+                <span className="text-[#829ab8]" aria-hidden="true">·</span>
                 <span className="text-xs text-[#9cb3cf]">
                   Semantic arXiv Discovery
                 </span>
               </div>
-              <span className="text-xs text-[#607899] hidden sm:inline">
+              <span className="text-xs text-[#829ab8] hidden sm:inline">
                 {activeQuery ? `Query: "${activeQuery}"` : ""}
               </span>
             </div>
@@ -1028,14 +1036,14 @@ export default function Home() {
                 placeholder="Search arXiv topics, methods, or questions…"
                 maxLength={400}
                 autoComplete="off"
-                className="h-10 w-full bg-transparent px-2 text-xs sm:text-sm text-[#f0f5fc] placeholder-[#607899] focus:outline-none"
+                className="h-10 w-full bg-transparent px-2 text-xs sm:text-sm text-[#f0f5fc] placeholder-[#829ab8] focus:outline-none"
               />
 
               {queryInput.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setQueryInput("")}
-                  className="mr-2 rounded p-1 text-xs text-[#607899] transition-colors hover:text-[#f0f5fc]"
+                  className="mr-2 rounded p-1 text-xs text-[#829ab8] transition-colors hover:text-[#f0f5fc]"
                   aria-label="Clear search input"
                 >
                   ✕
@@ -1061,7 +1069,7 @@ export default function Home() {
 
           {/* Compact Suggested Query Chips */}
           <div className="mt-3.5 flex flex-wrap items-center justify-center gap-1.5 max-w-3xl mx-auto">
-            <span className="font-mono text-xs font-medium text-[#607899] mr-1">
+            <span className="font-mono text-xs font-semibold text-[#829ab8] mr-1">
               Try:
             </span>
             {EXAMPLE_QUERIES.map((example) => (
@@ -1089,13 +1097,13 @@ export default function Home() {
                 </span>
                 {activeFilterCount > 0 ? (
                   <span
-                    className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.2 font-mono text-[11px] font-medium text-cyan-400"
+                    className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-cyan-400"
                     aria-label={`${activeFilterCount} active filters`}
                   >
                     {activeFilterCount} active
                   </span>
                 ) : (
-                  <span className="text-xs text-[#607899]">
+                  <span className="text-xs text-[#829ab8]">
                     Default: All categories · {MIN_YEAR}+
                   </span>
                 )}
@@ -1105,7 +1113,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="text-xs font-medium text-cyan-400 hover:text-cyan-300 hover:underline focus-visible:outline-none"
+                  className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline focus-visible:outline-none"
                 >
                   Reset filters
                 </button>
@@ -1125,7 +1133,7 @@ export default function Home() {
                       {yearFrom} or later
                     </strong>
                   </span>
-                  <span className="font-mono text-[11px] text-[#607899]">
+                  <span className="font-mono text-xs text-[#829ab8]">
                     {yearFrom > MIN_YEAR ? "Lower bound" : `All (${MIN_YEAR}+)`}
                   </span>
                 </div>
@@ -1164,9 +1172,9 @@ export default function Home() {
                         key={category}
                         type="button"
                         onClick={() => toggleCategory(category)}
-                        className={`rounded px-2 py-0.5 font-mono text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
+                        className={`rounded px-2.5 py-0.5 font-mono text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                           active
-                            ? "border border-cyan-400/50 bg-cyan-500/20 text-cyan-300"
+                            ? "border border-cyan-400/50 bg-cyan-500/20 text-cyan-300 font-semibold"
                             : "border border-[#1d3658] bg-[#071526] text-[#9cb3cf] hover:border-[#2b4f7c] hover:text-[#f0f5fc]"
                         }`}
                         aria-pressed={active}
@@ -1207,8 +1215,16 @@ export default function Home() {
         <section
           className="w-full flex flex-col gap-6"
           aria-label="Search results and synthesis"
-          aria-live="polite"
         >
+          {/* Targeted Screen Reader Live Status Region */}
+          <div className="sr-only" role="status" aria-live="polite">
+            {isLoading
+              ? "Searching arXiv research papers…"
+              : hasSearched
+              ? `Found ${results.length} papers for ${activeQuery}`
+              : ""}
+          </div>
+
           {/* Ranking degraded alert */}
           {rankingNote && !isLoading && (
             <div
@@ -1316,7 +1332,7 @@ export default function Home() {
                     <strong className="font-mono text-[#f0f5fc]">
                       {results.length}
                     </strong>{" "}
-                    papers for &ldquo;<span className="text-[#f0f5fc]">{activeQuery}</span>&rdquo; · ranked by semantic similarity to search query
+                    papers for &ldquo;<span className="text-[#f0f5fc]">{activeQuery}</span>&rdquo; · ranked by query semantic relevance (not paper quality)
                   </p>
                 </div>
                 {selectedGraphCount > 0 && (

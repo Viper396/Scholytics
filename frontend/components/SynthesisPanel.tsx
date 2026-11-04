@@ -93,9 +93,11 @@ export default function SynthesisPanel({
             <button
               type="button"
               onClick={onCancelSynthesis}
-              className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+              aria-label="Cancel and stop synthesis"
             >
-              Cancel
+              <span aria-hidden="true">■</span>
+              <span>Stop</span>
             </button>
           )}
 
@@ -156,8 +158,8 @@ export default function SynthesisPanel({
 
       {/* Streaming / Completed Synthesis Output Area */}
       {(synthesisText || isSynthesizing) && (
-        <div className="mt-4 rounded-lg border border-[#1d3658] bg-[#071526] p-4 sm:p-5">
-          <div className="synthesis-prose text-xs sm:text-sm leading-relaxed text-[#f0f5fc]">
+        <div className="mt-4 min-h-[120px] rounded-lg border border-[#1d3658] bg-[#071526] p-4 sm:p-5">
+          <div className="synthesis-prose text-sm leading-relaxed text-[#f0f5fc]">
             <ReactMarkdown
               components={{
                 p: ({ children }) => {
@@ -170,17 +172,31 @@ export default function SynthesisPanel({
                         return parts.map((part, idx) => {
                           const match = part.match(/^\[SOURCE\s+(\d+)\]$/);
                           if (match) {
-                            const num = match[1];
+                            const num = parseInt(match[1], 10);
+                            const sourceExists = synthesisSources.some(
+                              (s) => s.source_index === num,
+                            );
+                            if (sourceExists) {
+                              return (
+                                <a
+                                  key={idx}
+                                  href={`#source-${num}`}
+                                  className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-xs font-mono font-semibold rounded bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 transition-colors hover:bg-cyan-500/25 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                                  title={`Jump to Grounding Source ${num}`}
+                                  aria-label={`Grounding reference: [SOURCE ${num}]`}
+                                >
+                                  {part}
+                                </a>
+                              );
+                            }
                             return (
-                              <a
+                              <span
                                 key={idx}
-                                href={`#source-${num}`}
-                                className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-[11px] font-mono font-semibold rounded bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 transition-colors hover:bg-cyan-500/25 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                                title={`Jump to Grounding Source ${num}`}
-                                aria-label={`Grounding reference: [SOURCE ${num}]`}
+                                className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-xs font-mono font-medium rounded bg-rose-500/10 text-rose-300 border border-rose-500/30"
+                                title={`Unverified citation: ${part}`}
                               >
                                 {part}
-                              </a>
+                              </span>
                             );
                           }
                           return part;
@@ -196,7 +212,7 @@ export default function SynthesisPanel({
 
             {isSynthesizing && (
               <span
-                className="ml-1 inline-block h-3.5 w-1 animate-pulse rounded-sm bg-cyan-400 align-middle"
+                className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-cyan-400 align-middle"
                 aria-label="Generating…"
               />
             )}
@@ -214,11 +230,11 @@ export default function SynthesisPanel({
 
             {isSynthesisComplete && synthesisValidation && (
               synthesisValidation.has_hallucinations ? (
-                <span className="rounded border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-rose-300">
+                <span className="rounded border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-300">
                   ⚠ Unverified Citations: [SOURCE {synthesisValidation.invalid_citations.join(", ")}]
                 </span>
               ) : (
-                <span className="rounded border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
+                <span className="rounded border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                   ✓ Citations Verified ({synthesisValidation.cited_sources.length} sources cited)
                 </span>
               )
@@ -235,7 +251,7 @@ export default function SynthesisPanel({
                 <li
                   key={source.arxiv_id}
                   id={`source-${source.source_index}`}
-                  className={`flex flex-col justify-between rounded-lg p-3 transition-colors list-none border scroll-mt-20 ${
+                  className={`flex flex-col justify-between rounded-lg p-3 transition-colors list-none border scroll-mt-24 ${
                     isCited
                       ? "border-cyan-500/40 bg-cyan-500/5"
                       : "border-[#1d3658] bg-[#0c1a2e]"
@@ -244,7 +260,7 @@ export default function SynthesisPanel({
                   <div>
                     <div className="mb-1.5 flex items-start justify-between gap-2">
                       <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                        className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-xs font-bold ${
                           isCited
                             ? "bg-cyan-400 text-[#04121e]"
                             : "bg-[#11233d] text-[#9cb3cf] border border-[#1d3658]"
@@ -253,7 +269,7 @@ export default function SynthesisPanel({
                         SOURCE {source.source_index}
                       </span>
                       {isCited && (
-                        <span className="text-[11px] font-medium text-cyan-400">
+                        <span className="text-xs font-semibold text-cyan-400">
                           ✓ Cited
                         </span>
                       )}
@@ -262,14 +278,14 @@ export default function SynthesisPanel({
                       href={source.entry_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="line-clamp-2 font-medium text-xs text-[#f0f5fc] hover:text-cyan-300 hover:underline leading-snug"
+                      className="line-clamp-2 font-semibold text-sm text-[#f0f5fc] hover:text-cyan-300 hover:underline leading-snug"
                     >
                       {source.title}
                     </a>
                   </div>
 
-                  <div className="mt-2.5 flex items-center justify-between text-[11px] border-t border-[#1d3658] pt-2 text-[#9cb3cf]">
-                    <span className="truncate max-w-[160px]">
+                  <div className="mt-2.5 flex items-center justify-between text-xs border-t border-[#1d3658] pt-2 text-[#9cb3cf]">
+                    <span className="truncate max-w-[170px]">
                       {source.authors.length > 0
                         ? `${source.authors[0]}${source.authors.length > 1 ? " et al." : ""}`
                         : source.arxiv_id}
@@ -286,7 +302,7 @@ export default function SynthesisPanel({
                         href={source.entry_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-[10px] text-cyan-400 hover:underline"
+                        className="font-mono text-xs text-cyan-400 hover:underline"
                         aria-label={`Open arXiv abstract for ${source.title}`}
                       >
                         arXiv ↗
@@ -296,7 +312,7 @@ export default function SynthesisPanel({
                           href={source.pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-mono text-[10px] text-cyan-300 hover:underline"
+                          className="font-mono text-xs text-cyan-300 hover:underline"
                           aria-label={`Open PDF for ${source.title}`}
                         >
                           PDF ↗
@@ -309,7 +325,7 @@ export default function SynthesisPanel({
             })}
           </ol>
 
-          <p className="mt-2.5 text-[11px] text-[#607899]">
+          <p className="mt-2.5 text-xs text-[#829ab8]">
             ⚠ Grounding: Citations are cross-referenced directly against the retrieved candidate papers.
           </p>
         </div>
@@ -318,13 +334,13 @@ export default function SynthesisPanel({
       {/* Completion Footer */}
       {isSynthesisComplete && synthesisText && (
         <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1d3658]">
-          <p className="text-xs text-[#607899]">
+          <p className="text-xs text-[#829ab8]">
             Generated from author abstracts only — verify claims in original papers.
           </p>
           <button
             type="button"
             onClick={onCopySynthesis}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1d3658] bg-[#11233d] px-3 py-1.5 text-xs font-medium text-[#f0f5fc] transition-colors hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1d3658] bg-[#11233d] px-3 py-1.5 text-xs font-semibold text-[#f0f5fc] transition-colors hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label="Copy synthesis to clipboard"
           >
             <span aria-hidden="true">📋</span>

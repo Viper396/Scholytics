@@ -303,4 +303,27 @@ describe('Research Graph Page Workflows', () => {
     expect(screen.getByText('Mitigate gate noise in NISQ')).toBeInTheDocument();
     expect(screen.getByText('Both benchmark superconducting quantum hardware.')).toBeInTheDocument();
   });
+
+  it('preserves node selection and details when toggling edge filters', async () => {
+    render(<GraphPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Select paper in graph/i)).toBeInTheDocument();
+    });
+
+    const select = screen.getByLabelText(/Select paper in graph/i);
+    fireEvent.change(select, { target: { value: '2301.00001' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Comprehensive benchmark for quantum sampling advantage.')).toBeInTheDocument();
+    });
+
+    // Toggle same-field edge filter off
+    const sameFieldCheckbox = screen.getByLabelText(/Show same-field edges/i);
+    fireEvent.click(sameFieldCheckbox);
+
+    // Node selection and abstract details should remain intact
+    expect(screen.getByText('Comprehensive benchmark for quantum sampling advantage.')).toBeInTheDocument();
+    expect(screen.getByText('Quantum Supremacy Testing')).toBeInTheDocument();
+  });
 });

@@ -114,16 +114,16 @@ export default function ComparisonMatrix({
         <div className="space-y-5">
           {/* Dimensional Comparison Table with Horizontal Scroll */}
           <div className="overflow-x-auto rounded-lg border border-[#1d3658] bg-[#071526]">
-            <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+            <table className="w-full min-w-[720px] border-collapse text-left text-xs">
               <thead>
                 <tr className="border-b border-[#1d3658] bg-[#11233d]">
-                  <th className="w-36 p-3.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-wider sticky left-0 bg-[#11233d] z-10">
+                  <th className="w-40 min-w-[140px] p-3.5 text-xs font-bold text-cyan-400 sticky left-0 bg-[#11233d] z-10 border-r border-[#1d3658] shadow-[2px_0_8px_rgba(0,0,0,0.3)]">
                     Dimension
                   </th>
                   {comparisonResult.papers.map((p, idx) => (
                     <th
                       key={p.arxiv_id}
-                      className={`p-3.5 font-semibold text-[#f0f5fc] ${
+                      className={`p-3.5 font-semibold text-[#f0f5fc] min-w-[220px] ${
                         idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                       style={{ width: `${Math.floor(100 / (comparisonResult.papers.length + 1))}%` }}
@@ -134,7 +134,7 @@ export default function ComparisonMatrix({
                             href={p.entry_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-[11px] font-semibold text-cyan-400 hover:underline"
+                            className="font-mono text-xs font-semibold text-cyan-400 hover:underline"
                           >
                             arXiv:{p.arxiv_id}
                           </a>
@@ -143,7 +143,7 @@ export default function ComparisonMatrix({
                               href={p.pdf_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded border border-[#1d3658] bg-[#0c1a2e] px-1.5 py-0.5 font-mono text-[10px] text-cyan-300 hover:border-cyan-400"
+                              className="rounded border border-[#1d3658] bg-[#0c1a2e] px-1.5 py-0.5 font-mono text-xs text-cyan-300 hover:border-cyan-400"
                             >
                               PDF ↗
                             </a>
@@ -153,11 +153,11 @@ export default function ComparisonMatrix({
                           href={p.entry_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="line-clamp-2 font-medium text-xs text-[#f0f5fc] hover:text-cyan-300 hover:underline"
+                          className="line-clamp-2 font-semibold text-xs text-[#f0f5fc] hover:text-cyan-300 hover:underline leading-snug"
                         >
                           {p.title}
                         </a>
-                        <span className="text-[11px] text-[#607899]">
+                        <span className="text-xs text-[#829ab8]">
                           {p.published ? p.published.slice(0, 4) : ""} ·{" "}
                           {p.authors.length > 0 ? `${p.authors[0]} et al.` : ""}
                         </span>
@@ -169,13 +169,13 @@ export default function ComparisonMatrix({
               <tbody className="divide-y divide-[#1d3658]">
                 {/* Row 1: Objective */}
                 <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
-                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
+                  <td className="p-3.5 text-xs font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top border-r border-[#1d3658] shadow-[2px_0_8px_rgba(0,0,0,0.3)]">
                     Objective
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top ${
+                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top text-xs sm:text-sm ${
                         idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                     >
@@ -186,13 +186,13 @@ export default function ComparisonMatrix({
 
                 {/* Row 2: Method */}
                 <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
-                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
+                  <td className="p-3.5 text-xs font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top border-r border-[#1d3658] shadow-[2px_0_8px_rgba(0,0,0,0.3)]">
                     Proposed Method
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top ${
+                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top text-xs sm:text-sm ${
                         idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                     >
@@ -203,17 +203,17 @@ export default function ComparisonMatrix({
 
                 {/* Row 3: Datasets & Setup */}
                 <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
-                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
+                  <td className="p-3.5 text-xs font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top border-r border-[#1d3658] shadow-[2px_0_8px_rgba(0,0,0,0.3)]">
                     Datasets / Setup
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-3.5 leading-relaxed align-top ${
+                      className={`p-3.5 leading-relaxed align-top text-xs sm:text-sm ${
                         idx > 0 ? "border-l border-[#1d3658]" : ""
                       } ${
                         p.datasets_or_setup.includes("Not explicitly")
-                          ? "text-[#607899] italic"
+                          ? "text-[#829ab8] italic"
                           : "text-[#f0f5fc]"
                       }`}
                     >
@@ -224,13 +224,13 @@ export default function ComparisonMatrix({
 
                 {/* Row 4: Findings */}
                 <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
-                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
+                  <td className="p-3.5 text-xs font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top border-r border-[#1d3658] shadow-[2px_0_8px_rgba(0,0,0,0.3)]">
                     Reported Findings
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top ${
+                      className={`p-3.5 leading-relaxed text-[#f0f5fc] align-top text-xs sm:text-sm ${
                         idx > 0 ? "border-l border-[#1d3658]" : ""
                       }`}
                     >
@@ -241,17 +241,17 @@ export default function ComparisonMatrix({
 
                 {/* Row 5: Limitations */}
                 <tr className="hover:bg-[#0c1a2e]/60 transition-colors">
-                  <td className="p-3.5 font-mono text-[11px] font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top">
+                  <td className="p-3.5 text-xs font-semibold text-cyan-300 bg-[#0c1a2e] sticky left-0 z-10 align-top border-r border-[#1d3658] shadow-[2px_0_8px_rgba(0,0,0,0.3)]">
                     Author Limitations
                   </td>
                   {comparisonResult.papers.map((p, idx) => (
                     <td
                       key={p.arxiv_id}
-                      className={`p-3.5 leading-relaxed align-top ${
+                      className={`p-3.5 leading-relaxed align-top text-xs sm:text-sm ${
                         idx > 0 ? "border-l border-[#1d3658]" : ""
                       } ${
                         p.limitations.includes("Not explicitly")
-                          ? "text-[#607899] italic"
+                          ? "text-[#829ab8] italic"
                           : "text-rose-300"
                       }`}
                     >
@@ -269,7 +269,7 @@ export default function ComparisonMatrix({
             <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-4">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="text-cyan-400 font-bold" aria-hidden="true">✓</span>
-                <h4 className="font-mono text-xs font-bold text-cyan-400">
+                <h4 className="text-xs font-bold text-cyan-400">
                   Similarities &amp; Consensus
                 </h4>
               </div>
@@ -282,7 +282,7 @@ export default function ComparisonMatrix({
                     </li>
                   ))
                 ) : (
-                  <li className="text-[11px] text-[#607899] italic">
+                  <li className="text-xs text-[#829ab8] italic">
                     No notable commonalities identified in abstracts.
                   </li>
                 )}
@@ -293,7 +293,7 @@ export default function ComparisonMatrix({
             <div className="rounded-lg border border-[#1d3658] bg-[#071526] p-4">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="text-cyan-300 font-bold" aria-hidden="true">≠</span>
-                <h4 className="font-mono text-xs font-bold text-cyan-300">
+                <h4 className="text-xs font-bold text-cyan-300">
                   Methodological Differences
                 </h4>
               </div>
@@ -306,7 +306,7 @@ export default function ComparisonMatrix({
                     </li>
                   ))
                 ) : (
-                  <li className="text-[11px] text-[#607899] italic">
+                  <li className="text-xs text-[#829ab8] italic">
                     No distinct divergence reported across abstracts.
                   </li>
                 )}
@@ -318,11 +318,11 @@ export default function ComparisonMatrix({
               <div className="mb-2 flex items-center justify-between gap-1">
                 <div className="flex items-center gap-1.5">
                   <span className="text-amber-400 font-bold" aria-hidden="true">?</span>
-                  <h4 className="font-mono text-xs font-bold text-amber-400">
+                  <h4 className="text-xs font-bold text-amber-400">
                     Potential Research Gaps
                   </h4>
                 </div>
-                <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-amber-400">
+                <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-amber-400">
                   Model Interpretation
                 </span>
               </div>
@@ -335,7 +335,7 @@ export default function ComparisonMatrix({
                     </li>
                   ))
                 ) : (
-                  <li className="text-[11px] text-[#607899] italic">
+                  <li className="text-xs text-[#829ab8] italic">
                     No evident research gaps derived from reported limitations.
                   </li>
                 )}
@@ -344,7 +344,7 @@ export default function ComparisonMatrix({
           </div>
 
           {/* Disclaimer */}
-          <p className="text-[11px] text-[#607899]">
+          <p className="text-xs text-[#829ab8]">
             ⚠ {comparisonResult.disclaimer}
           </p>
         </div>
