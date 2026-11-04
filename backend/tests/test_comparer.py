@@ -282,6 +282,7 @@ class TestReasoningModelAndResilience:
     def test_is_reasoning_model_detection(self):
         """Accurately identifies reasoning models and ignores standard models."""
         assert comparer.is_reasoning_model("openai/gpt-oss-20b") is True
+        assert comparer.is_reasoning_model("openai/gpt-oss-120b") is True
         assert comparer.is_reasoning_model("deepseek-r1-distill-llama-70b") is True
         assert comparer.is_reasoning_model("llama-3.1-8b-instant") is False
         assert comparer.is_reasoning_model("llama-3.3-70b-versatile") is False

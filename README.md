@@ -119,7 +119,7 @@ To prevent duplicate vectors for the same logical paper when revised versions ar
 | **Backend Framework** | FastAPI (Python 3.12+) | Async endpoints, Pydantic v2 input validation, CORS protection |
 | **Vector Database** | Pinecone & ChromaDB | Pluggable vector store layer supporting both Pinecone serverless and ChromaDB ephemeral |
 | **Embeddings** | FastEmbed (`BAAI/bge-small-en-v1.5`) | Fast ONNX-based local inference (384 dimensions, normalized) |
-| **LLM Inference** | Groq API (`openai/gpt-oss-20b`) | High-speed inference for summaries and streaming SSE synthesis |
+| **LLM Inference** | Groq API (`openai/gpt-oss-20b` / `openai/gpt-oss-120b`) | High-speed inference for summaries, comparisons, and streaming SSE synthesis |
 | **Frontend** | Next.js 14 (App Router) + TypeScript | React 18, Tailwind CSS, Server-Sent Events stream parser |
 | **Visualization** | D3.js v7 (`d3-force`, `d3-zoom`, `d3-drag`) | Interactive graph with physics simulation, zoom, and node inspector |
 | **Testing** | pytest, Jest, React Testing Library | 214 backend unit/integration tests; 27 frontend tests; TypeScript & ESLint validation |
@@ -133,7 +133,7 @@ To prevent duplicate vectors for the same logical paper when revised versions ar
 | Variable | Required | Default | Description |
 | :--- | :---: | :--- | :--- |
 | `GROQ_API_KEY` | Yes (for AI) | *None* | Groq API key for LLM paper summaries and synthesis. |
-| `GROQ_MODEL` | No | `openai/gpt-oss-20b` | Model name for Groq completions (default: `openai/gpt-oss-20b`). |
+| `GROQ_MODEL` | No | `openai/gpt-oss-20b` | Model name for Groq completions (supports `openai/gpt-oss-20b` and `openai/gpt-oss-120b`). |
 | `VECTOR_STORE_BACKEND` | No | `chroma` | Active vector store adapter: `chroma` or `pinecone`. |
 | `PINECONE_API_KEY` | If Pinecone | *None* | Pinecone API key (mandatory when `VECTOR_STORE_BACKEND=pinecone`). |
 | `PINECONE_INDEX_NAME` | No | `scholytics-papers` | Target index name in Pinecone. |

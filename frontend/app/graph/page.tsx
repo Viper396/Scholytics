@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as d3 from "d3";
 import Nav from "../../components/Nav";
+import { formatModelBadge } from "../../components/PaperCard";
 import ComparisonMatrix, {
   ComparisonResult,
 } from "../../components/ComparisonMatrix";
@@ -182,6 +183,7 @@ function GraphPageContent() {
   const [, setDetailsError] = useState<string | null>(null);
 
   const [summaryById, setSummaryById] = useState<Record<string, string>>({});
+  const [summaryModelById, setSummaryModelById] = useState<Record<string, string>>({});
   const [summaryLoadingById, setSummaryLoadingById] = useState<Record<string, boolean>>({});
   const [summaryErrorById, setSummaryErrorById] = useState<Record<string, string>>({});
 
@@ -815,8 +817,11 @@ function GraphPageContent() {
         throw new Error(msg);
       }
 
-      const data = (await response.json()) as { arxiv_id: string; summary: string };
+      const data = (await response.json()) as { arxiv_id: string; summary: string; model?: string };
       setSummaryById((current) => ({ ...current, [nodeId]: data.summary }));
+      if (data.model) {
+        setSummaryModelById((current) => ({ ...current, [nodeId]: data.model! }));
+      }
     } catch (error) {
       setSummaryErrorById((current) => ({
         ...current,
@@ -890,6 +895,7 @@ function GraphPageContent() {
   }
 
   const summaryText = selectedNodeId ? summaryById[selectedNodeId] : "";
+  const summaryModel = selectedNodeId ? summaryModelById[selectedNodeId] : "";
   const summaryLoading = selectedNodeId ? summaryLoadingById[selectedNodeId] : false;
   const summaryError = selectedNodeId ? summaryErrorById[selectedNodeId] : "";
 
@@ -1245,8 +1251,13 @@ function GraphPageContent() {
 
                   {/* AI Summary (if active) */}
                   {summaryText && (
-                    <div className="rounded-lg border border-[#24c6d8]/30 bg-[#14263a] p-3 text-xs space-y-1">
-                      <span className="font-bold text-[#24c6d8]">✦ AI Summary:</span>
+                    <div className="rounded-lg border border-[#24c6d8]/30 bg-[#14263a] p-3 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#24c6d8]">✦ AI Summary:</span>
+                        <span className="rounded border border-[#294058] bg-[#101e30] px-1.5 py-0.5 font-mono text-[11px] text-[#a7bacd]">
+                          {formatModelBadge(summaryModel)}
+                        </span>
+                      </div>
                       <p className="text-[#eaf2f8] leading-relaxed">{summaryText}</p>
                     </div>
                   )}

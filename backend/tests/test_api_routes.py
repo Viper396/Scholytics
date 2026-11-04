@@ -294,6 +294,7 @@ class TestPaperDetailsAndSummaries:
         data = response.json()
         assert data["arxiv_id"] == "2301.00001"
         assert data["summary"] == "This paper introduces a novel architecture."
+        assert "model" in data
 
     @patch("services.arxiv_client.fetch_paper_by_id")
     @patch("services.summarizer.summarize_paper")

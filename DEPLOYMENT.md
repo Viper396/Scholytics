@@ -92,7 +92,7 @@ This repository contains a `render.yaml` blueprint:
 | `PINECONE_API_KEY` | **Yes** | `pcsk_...` | Pinecone secret API key. Never expose in frontend! |
 | `PINECONE_INDEX_NAME` | **Yes** | `scholytics-papers` | Target Pinecone serverless index name. |
 | `GROQ_API_KEY` | **Yes** | `gsk_...` | Groq API key for LLM summarization & streaming synthesis. |
-| `GROQ_MODEL` | No | `openai/gpt-oss-20b` | Groq model selection (default: `openai/gpt-oss-20b`). Note: Legacy `llama-3.1-8b-instant` was decommissioned in Aug 2026. |
+| `GROQ_MODEL` | No | `openai/gpt-oss-20b` | Groq model selection (default: `openai/gpt-oss-20b`; also supports `openai/gpt-oss-120b`). Note: Legacy `llama-3.1-8b-instant` was decommissioned in Aug 2026. |
 | `FRONTEND_ORIGIN` | **Yes** | `https://scholytics.vercel.app` | Allowed CORS origin. Supports comma-separated list. |
 | `ENABLE_CACHE` | No | `true` | Bounded LRU in-memory cache (<5MB RAM). |
 | `ENABLE_RERANKER` | No | `false` | Keep `false` on Render free tier (512MB RAM limit). |

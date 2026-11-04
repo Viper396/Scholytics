@@ -183,7 +183,11 @@ async def summarize_paper(
 			detail="Upstream summarization service failed. Please try again later.",
 		) from exc
 
-	return {"arxiv_id": str(paper.get("arxiv_id", arxiv_id)), "summary": summary}
+	return {
+		"arxiv_id": str(paper.get("arxiv_id", arxiv_id)),
+		"summary": summary,
+		"model": summarizer._get_model_name(),
+	}
 
 
 @router.post("/api/papers/summarize-batch")
@@ -218,6 +222,7 @@ async def summarize_batch(payload: SummarizeBatchRequest) -> dict[str, list[dict
 			"arxiv_id": str(paper.get("arxiv_id", "")),
 			"title": str(paper.get("title", "")),
 			"summary": str(paper.get("summary", "Summary unavailable.")),
+			"model": summarizer._get_model_name(),
 		}
 		for paper in summarized
 	]

@@ -31,6 +31,7 @@ type SummaryState = {
   open: boolean;
   summary?: string;
   error?: string;
+  model?: string;
 };
 
 type ReadingListEntry = {
@@ -566,13 +567,14 @@ export default function Home() {
         throw new Error(msg);
       }
 
-      const data = (await response.json()) as { arxiv_id: string; summary: string };
+      const data = (await response.json()) as { arxiv_id: string; summary: string; model?: string };
       setSummaryById((current) => ({
         ...current,
         [arxivId]: {
           loading: false,
           open: true,
           summary: data.summary,
+          model: data.model,
           error: undefined,
         },
       }));

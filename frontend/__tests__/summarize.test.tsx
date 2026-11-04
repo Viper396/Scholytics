@@ -84,6 +84,7 @@ jest.mock('next/navigation', () => ({
 
 import Home from '../app/page';
 import GraphPage from '../app/graph/page';
+import { formatModelBadge } from '../components/PaperCard';
 
 const mockSearchResults = {
   query: 'quantum computing',
@@ -405,5 +406,51 @@ describe('Summarization Workflows (Search Card and Graph View)', () => {
       expect(screen.getByText('Successful summary upon retry in graph.')).toBeInTheDocument();
     });
     expect(summarizeAttempts).toBe(2);
+  });
+
+  describe('formatModelBadge and Dynamic Model Indicators', () => {
+    it('formats Groq models dynamically for 120B and 20B parameters', () => {
+      expect(formatModelBadge('openai/gpt-oss-120b')).toBe('Groq GPT-OSS 120B');
+      expect(formatModelBadge('openai/gpt-oss-20b')).toBe('Groq GPT-OSS 20B');
+      expect(formatModelBadge('openai/gpt-oss')).toBe('Groq GPT-OSS');
+      expect(formatModelBadge(undefined)).toBe('Groq GPT-OSS');
+    });
+
+    it('displays dynamic model badge on search card when model is returned by API', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockSearchResults,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            arxiv_id: '2301.00001',
+            summary: 'Summary generated with GPT-OSS 120B.',
+            model: 'openai/gpt-oss-120b',
+          }),
+        });
+
+      render(<Home />);
+      fireEvent.change(screen.getByPlaceholderText(/Search arXiv topics/i), {
+        target: { value: 'quantum' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /^search$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Quantum Supremacy Testing')).toBeInTheDocument();
+      });
+
+      const summarizeBtn = screen.getByRole('button', {
+        name: /Summarize: Quantum Supremacy Testing/i,
+      });
+      fireEvent.click(summarizeBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Summary generated with GPT-OSS 120B.')).toBeInTheDocument();
+        expect(screen.getByText('Groq GPT-OSS 120B')).toBeInTheDocument();
+      });
+    });
   });
 });

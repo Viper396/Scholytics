@@ -27,6 +27,7 @@ export type PaperCardProps = {
     error?: string;
     summary?: string;
     open?: boolean;
+    model?: string;
   };
   onToggleAbstract: (id: string) => void;
   onToggleGraph: (id: string) => void;
@@ -34,6 +35,18 @@ export type PaperCardProps = {
   onToggleSaved: (paper: PaperResult) => void;
   onSummarize: (id: string) => void;
 };
+
+export function formatModelBadge(model?: string): string {
+  if (!model) return "Groq GPT-OSS";
+  const m = model.toLowerCase();
+  if (m.includes("gpt-oss-120b") || m.includes("120b")) return "Groq GPT-OSS 120B";
+  if (m.includes("gpt-oss-20b") || m.includes("20b")) return "Groq GPT-OSS 20B";
+  if (m.includes("gpt-oss")) return "Groq GPT-OSS";
+  if (m.includes("llama-3.3-70b") || m.includes("70b")) return "Groq Llama 3.3 70B";
+  if (m.includes("llama-3.1-8b") || m.includes("8b")) return "Groq Llama 3.1 8B";
+  const clean = model.replace(/^openai\//i, "").replace(/^meta-llama\//i, "");
+  return `Groq ${clean}`;
+}
 
 function clampScore(score: number | null): number {
   if (score === null || Number.isNaN(score)) return 0;
@@ -390,7 +403,7 @@ export default function PaperCard({
                       </p>
                     </div>
                     <span className="rounded border border-[#294058] bg-[#101e30] px-2 py-0.5 font-mono text-xs text-[#a7bacd]">
-                      Groq Llama 3.1 8B
+                      {formatModelBadge(summaryState.model)}
                     </span>
                   </div>
                   <p className="text-sm text-[#eaf2f8] leading-relaxed">
