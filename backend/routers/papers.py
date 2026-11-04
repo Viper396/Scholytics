@@ -317,7 +317,27 @@ async def compare_papers_endpoint(payload: ComparePapersRequest) -> comparer.Com
 				status_code=502,
 				detail="Configured model is unavailable or decommissioned on Groq. Please verify GROQ_MODEL in environment settings.",
 			) from exc
+		if (
+			"connection" in exc_str
+			or "connection" in exc_name
+			or "timeout" in exc_str
+			or "timeout" in exc_name
+			or "connecterror" in exc_str
+			or "timed out" in exc_str
+			or "503" in exc_str
+			or "500" in exc_str
+			or "internalservererror" in exc_name
+		):
+			raise HTTPException(
+				status_code=503,
+				detail="Groq comparison service is temporarily unavailable. Please try again later.",
+			) from exc
+		if "json_validate_failed" in exc_str or "badrequesterror" in exc_name or "400" in exc_str:
+			raise HTTPException(
+				status_code=502,
+				detail="Upstream model output validation failed. Please try again with fewer or different papers.",
+			) from exc
 		raise HTTPException(
-			status_code=500,
-			detail="Failed to generate comparison. Please check server logs and try again.",
+			status_code=502,
+			detail="Failed to generate paper comparison from upstream AI service. Please try again.",
 		) from exc

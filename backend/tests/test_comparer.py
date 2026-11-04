@@ -261,3 +261,77 @@ class TestCompareEndpointIntegration:
         })
         assert response.status_code == 429
         assert "Groq rate limit reached" in response.json()["detail"]
+
+    @patch("services.comparer.compare_papers")
+    def test_compare_endpoint_handles_groq_json_validation_failure(self, mock_compare, client):
+        """Maps Groq 400 json_validate_failed to 502 with informative message."""
+        mock_compare.side_effect = Exception("Error code: 400 - {'code': 'json_validate_failed'}")
+        sample_papers = [
+            _sample_paper("2401.00001", "P1", "A1"),
+            _sample_paper("2401.00002", "P2", "A2"),
+        ]
+        response = client.post("/api/papers/compare", json={
+            "arxiv_ids": ["2401.00001", "2401.00002"],
+            "papers": sample_papers,
+        })
+        assert response.status_code == 502
+        assert "Upstream model output validation failed" in response.json()["detail"]
+
+
+class TestReasoningModelAndResilience:
+    def test_is_reasoning_model_detection(self):
+        """Accurately identifies reasoning models and ignores standard models."""
+        assert comparer.is_reasoning_model("openai/gpt-oss-20b") is True
+        assert comparer.is_reasoning_model("deepseek-r1-distill-llama-70b") is True
+        assert comparer.is_reasoning_model("llama-3.1-8b-instant") is False
+        assert comparer.is_reasoning_model("llama-3.3-70b-versatile") is False
+
+    def test_call_groq_compare_configures_reasoning_model(self):
+        """Passes reasoning_format='parsed' and reasoning_effort='low' for reasoning models."""
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock(message=MagicMock(content='{"papers": []}'))]
+        mock_client.chat.completions.create.return_value = mock_resp
+
+        messages = [{"role": "user", "content": "test"}]
+        result = comparer._call_groq_compare(mock_client, "openai/gpt-oss-20b", messages)
+        assert result == '{"papers": []}'
+
+        called_kwargs = mock_client.chat.completions.create.call_args[1]
+        assert called_kwargs.get("reasoning_format") == "parsed"
+        assert called_kwargs.get("reasoning_effort") == "low"
+        assert called_kwargs.get("max_completion_tokens") == 4096
+
+    def test_call_groq_compare_omits_reasoning_params_for_standard_models(self):
+        """Does not pass reasoning parameters for standard non-reasoning models."""
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock(message=MagicMock(content='{"papers": []}'))]
+        mock_client.chat.completions.create.return_value = mock_resp
+
+        messages = [{"role": "user", "content": "test"}]
+        comparer._call_groq_compare(mock_client, "llama-3.1-8b-instant", messages)
+
+        called_kwargs = mock_client.chat.completions.create.call_args[1]
+        assert "reasoning_format" not in called_kwargs
+        assert "reasoning_effort" not in called_kwargs
+
+    def test_call_groq_compare_retries_on_json_validate_failed(self):
+        """Retries without strict json_object response_format if Groq returns json_validate_failed."""
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock(message=MagicMock(content='{"papers": [{"arxiv_id": "p1"}]}'))]
+
+        # First call fails with Groq's 400 json_validate_failed, second call succeeds
+        mock_client.chat.completions.create.side_effect = [
+            Exception("Error code: 400 - {'code': 'json_validate_failed', 'failed_generation': ''}"),
+            mock_resp,
+        ]
+
+        messages = [{"role": "user", "content": "test"}]
+        result = comparer._call_groq_compare(mock_client, "openai/gpt-oss-20b", messages)
+        assert result == '{"papers": [{"arxiv_id": "p1"}]}'
+        assert mock_client.chat.completions.create.call_count == 2
+        # Verify second call omitted response_format
+        second_call_kwargs = mock_client.chat.completions.create.call_args_list[1][1]
+        assert "response_format" not in second_call_kwargs

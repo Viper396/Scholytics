@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from services.summarizer import _get_client, _get_model_name
+from services.summarizer import _get_client, _get_model_name, is_reasoning_model
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,86 @@ def _clean_json_response(raw_text: str) -> dict[str, Any]:
 		if match:
 			return json.loads(match.group(0))
 		raise ValueError("Model output did not contain a valid JSON object")
+
+
+def _call_groq_compare(
+	client: Any,
+	model_name: str,
+	messages: list[dict[str, str]],
+	temperature: float = 0.2,
+) -> str:
+	"""
+	Execute the Groq chat completion for paper comparison with appropriate token budgets
+	and reasoning parameters, with resilient fallback if JSON validation fails.
+	"""
+	kwargs: dict[str, Any] = {
+		"model": model_name,
+		"messages": messages,
+		"temperature": temperature,
+		"max_completion_tokens": 4096,
+		"response_format": {"type": "json_object"},
+	}
+
+	if is_reasoning_model(model_name):
+		kwargs["reasoning_format"] = "parsed"
+		kwargs["reasoning_effort"] = "low"
+
+	try:
+		response = client.chat.completions.create(**kwargs)
+		return response.choices[0].message.content or "{}"
+	except TypeError as te:
+		if "max_completion_tokens" in str(te):
+			kwargs.pop("max_completion_tokens", None)
+			kwargs["max_tokens"] = 4096
+			response = client.chat.completions.create(**kwargs)
+			return response.choices[0].message.content or "{}"
+		raise
+	except Exception as exc:
+		exc_msg = str(exc).lower()
+		logger.warning("Primary comparison call failed: %s", exc)
+
+		# 1. Fallback for non-reasoning models if reasoning parameters caused error
+		if "reasoning" in exc_msg or "unrecognized" in exc_msg or "unexpected parameter" in exc_msg:
+			fallback_kwargs = dict(kwargs)
+			fallback_kwargs.pop("reasoning_format", None)
+			fallback_kwargs.pop("reasoning_effort", None)
+			try:
+				response = client.chat.completions.create(**fallback_kwargs)
+				return response.choices[0].message.content or "{}"
+			except Exception as sub_exc:
+				exc = sub_exc
+				exc_msg = str(sub_exc).lower()
+
+		# 2. Fallback for Groq server-side JSON validation failure (json_validate_failed)
+		if (
+			"json_validate_failed" in exc_msg
+			or "failed to validate json" in exc_msg
+			or "failed to generate json" in exc_msg
+		):
+			logger.info("Retrying Groq comparison without strict json_object response_format...")
+			retry_kwargs: dict[str, Any] = {
+				"model": model_name,
+				"messages": messages,
+				"temperature": temperature,
+				"max_completion_tokens": 4096,
+			}
+			if is_reasoning_model(model_name):
+				retry_kwargs["reasoning_format"] = "parsed"
+				retry_kwargs["reasoning_effort"] = "low"
+
+			try:
+				response = client.chat.completions.create(**retry_kwargs)
+				return response.choices[0].message.content or "{}"
+			except TypeError:
+				retry_kwargs.pop("max_completion_tokens", None)
+				retry_kwargs["max_tokens"] = 4096
+				response = client.chat.completions.create(**retry_kwargs)
+				return response.choices[0].message.content or "{}"
+			except Exception as retry_exc:
+				logger.error("Fallback comparison call also failed: %s", retry_exc)
+				raise retry_exc from exc
+
+		raise exc
 
 
 def compare_papers(
@@ -161,9 +241,10 @@ def compare_papers(
 		"Strict Grounding Rules:\n"
 		"1. Extract information ONLY from the provided paper abstracts. Do NOT invent, assume, or extrapolate findings, datasets, or experimental metrics.\n"
 		"2. If a specific dimension (e.g. dataset, experimental setup, or limitation) is not explicitly stated in an abstract, you MUST record it as 'Not explicitly reported in abstract'.\n"
-		"3. Clearly associate each paper's features with its exact ID provided in the prompt.\n"
-		"4. Research Gaps must represent potential opportunities or unaddressed limitations derived directly from the stated evidence, framed as model interpretations.\n"
-		"5. Output strictly a JSON object with keys: 'papers', 'similarities', 'differences', 'research_gaps'."
+		"3. Keep every text field concise (1-2 sentences) to stay well within completion limits.\n"
+		"4. Clearly associate each paper's features with its exact ID provided in the prompt.\n"
+		"5. Research Gaps must represent potential opportunities or unaddressed limitations derived directly from the stated evidence, framed as model interpretations.\n"
+		"6. Output strictly a single JSON object with keys: 'papers', 'similarities', 'differences', 'research_gaps'. Do not wrap in markdown or add conversational text."
 	)
 
 	user_prompt = (
@@ -171,36 +252,33 @@ def compare_papers(
 		+ (f" in the context of query: \"{query.strip()}\"" if query and query.strip() else "")
 		+ ":\n\n"
 		f"{papers_context}\n\n"
-		"Provide a JSON object adhering to this structure:\n"
+		"Provide a concise JSON object adhering strictly to this structure:\n"
 		"{\n"
 		"  \"papers\": [\n"
 		"    {\n"
 		"      \"arxiv_id\": \"<exact ID>\",\n"
-		"      \"research_question\": \"<primary research objective or question in 1-2 sentences>\",\n"
-		"      \"method\": \"<proposed method, architecture, or algorithm in 1-2 sentences>\",\n"
-		"      \"datasets_or_setup\": \"<stated datasets, benchmarks, or setup, or 'Not explicitly reported in abstract'>\",\n"
-		"      \"reported_findings\": \"<key empirical or theoretical findings stated in abstract>\",\n"
-		"      \"limitations\": \"<limitations explicitly stated by authors, or 'Not explicitly stated in abstract'>\"\n"
+		"      \"research_question\": \"<primary research objective in 1-2 concise sentences>\",\n"
+		"      \"method\": \"<proposed method or approach in 1-2 concise sentences>\",\n"
+		"      \"datasets_or_setup\": \"<stated datasets or 'Not explicitly reported in abstract'>\",\n"
+		"      \"reported_findings\": \"<key empirical/theoretical findings in 1-2 concise sentences>\",\n"
+		"      \"limitations\": \"<limitations stated by authors, or 'Not explicitly stated in abstract'>\"\n"
 		"    }\n"
 		"  ],\n"
-		"  \"similarities\": [\"<shared premise, common technique, or consensus point>\"],\n"
-		"  \"differences\": [\"<contrasting technique, differing experimental goal, or divergent finding>\"],\n"
-		"  \"research_gaps\": [\"<potential research gap or open direction derived from reported limitations>\"]\n"
+		"  \"similarities\": [\"<shared premise, common technique, or consensus point (1 sentence)>\"],\n"
+		"  \"differences\": [\"<contrasting technique, differing experimental goal, or divergent finding (1 sentence)>\"],\n"
+		"  \"research_gaps\": [\"<potential research gap or open direction derived from reported limitations (1 sentence)>\"]\n"
 		"}"
 	)
 
-	response = client.chat.completions.create(
-		model=model_name,
+	raw_content = _call_groq_compare(
+		client=client,
+		model_name=model_name,
 		messages=[
 			{"role": "system", "content": system_prompt},
 			{"role": "user", "content": user_prompt},
 		],
-		response_format={"type": "json_object"},
 		temperature=0.2,
-		max_tokens=1500,
 	)
-
-	raw_content = response.choices[0].message.content or "{}"
 	data = _clean_json_response(raw_content)
 
 	# Validate and normalize model output against genuine input papers

@@ -28,6 +28,11 @@ def _get_model_name() -> str:
 	return os.getenv("GROQ_MODEL", _DEFAULT_GROQ_MODEL).strip() or _DEFAULT_GROQ_MODEL
 
 
+def is_reasoning_model(model_name: str) -> bool:
+	name = model_name.lower().strip()
+	return any(k in name for k in ("gpt-oss", "deepseek-r1", "r1-distill", "reasoner", "reasoning", "qwq"))
+
+
 def _get_client() -> Groq:
 	global _GROQ_CLIENT, _CACHED_KEY
 	api_key = _get_api_key()
@@ -58,9 +63,9 @@ def summarize_paper(title: str, abstract: str, arxiv_id: str = "") -> str:
 	safe_title = title.strip()[:_MAX_TITLE_CHARS]
 	safe_abstract = abstract.strip()[:_MAX_ABSTRACT_CHARS]
 
-	response = client.chat.completions.create(
-		model=model_name,
-		messages=[
+	kwargs: dict[str, Any] = {
+		"model": model_name,
+		"messages": [
 			{
 				"role": "system",
 				"content": (
@@ -83,9 +88,23 @@ def summarize_paper(title: str, abstract: str, arxiv_id: str = "") -> str:
 				),
 			},
 		],
-		stream=False,
-		max_tokens=400,
-	)
+		"stream": False,
+		"max_tokens": 1000,
+	}
+	if is_reasoning_model(model_name):
+		kwargs["reasoning_effort"] = "low"
+		kwargs["reasoning_format"] = "parsed"
+
+	try:
+		response = client.chat.completions.create(**kwargs)
+	except Exception as exc:
+		if "reasoning" in str(exc).lower() or "unrecognized" in str(exc).lower():
+			kwargs.pop("reasoning_effort", None)
+			kwargs.pop("reasoning_format", None)
+			response = client.chat.completions.create(**kwargs)
+		else:
+			raise
+
 	result = (response.choices[0].message.content or "").strip()
 	if cache_key and result:
 		paper_summary_cache.set(cache_key, result)
@@ -251,15 +270,28 @@ def generate_search_summary(query: str, papers: list[dict]) -> Generator[str, No
 		"=== END OF RETRIEVED PAPERS ==="
 	)
 
-	stream = client.chat.completions.create(
-		model=model_name,
-		messages=[
+	kwargs: dict[str, Any] = {
+		"model": model_name,
+		"messages": [
 			{"role": "system", "content": system_prompt},
 			{"role": "user", "content": user_prompt},
 		],
-		stream=True,
-		max_tokens=850,
-	)
+		"stream": True,
+		"max_tokens": 1500,
+	}
+	if is_reasoning_model(model_name):
+		kwargs["reasoning_effort"] = "low"
+		kwargs["reasoning_format"] = "parsed"
+
+	try:
+		stream = client.chat.completions.create(**kwargs)
+	except Exception as exc:
+		if "reasoning" in str(exc).lower() or "unrecognized" in str(exc).lower():
+			kwargs.pop("reasoning_effort", None)
+			kwargs.pop("reasoning_format", None)
+			stream = client.chat.completions.create(**kwargs)
+		else:
+			raise
 
 	for chunk in stream:
 		delta: Any = chunk.choices[0].delta
